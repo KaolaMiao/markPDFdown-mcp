@@ -1,234 +1,352 @@
-# MarkPDFdown 🚀
+# MarkPDFdown-MCP
 
-MarkPDFdown 是一个利用 **Gemini 3.0 Flash** 等多模态大模型，将 PDF 转换为高质量 Markdown 格式的开源系统。它能够精准识别复杂布局、表格、数学公式和图片。
+> 基于 MCP 协议的云端 PDF 转 Markdown 服务，利用多模态大模型实现高精度文档转换
 
-## ✨ 主要功能
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
+[![Python](https://img.shields.io/badge/Python-3.10%2B-green.svg)](https://www.python.org/)
+[![React](https://img.shields.io/badge/React-19-blue.svg)](https://react.dev/)
+[![Docker](https://img.shields.io/badge/Docker-Ready-blue.svg)](https://www.docker.com/)
 
-- **高精度转换**: 识别多栏布局、表格内容及 LaTeX 数学公式。
-- **任务管理**: 完整的任务记录、状态监控及产物预览。
-- **本地 & 远程协作**:
-  - **Docker 一键部署**: 专为服务器面板（1Panel、宝塔）优化。
-  - **MCP 协议支持**: 将你的转换服务器连接到 Claude Desktop 或 Cursor，实现 AI 驱动的文档处理流水线。
-- **自动清理**: 智能硬盘保护，自动保留最近 N 条任务（如最近 20 条），防止服务器存储爆炸。
+MarkPDFdown-MCP 是一个云端的 PDF 文档转换服务，通过多模态大模型（如 Gemini 3.0 Flash）将 PDF 文档转换为高质量的 Markdown 格式。项目提供 Web 界面和 MCP (Model Context Protocol) 服务，可独立部署或与 AI 助手（Claude Desktop、Cursor）集成。
 
-## 🚀 未来开发计划
+## ✨ 核心特性
 
-本项目参考了 [MarkPDFdown Desktop](https://github.com/markpdfdown/markpdfdown-desktop) 的优秀设计，持续优化用户体验和功能完整性。
+### 🎯 高精度转换
+- 支持 PDF 文档转换为 Markdown
+- 准确识别复杂布局、表格结构
+- 保留 LaTeX 数学公式格式
+- 图片和图表的智能识别
 
-### Phase 1: 前端体验升级 🎨
+### 🌐 Web 服务
+- **RESTful API**: 基于 FastAPI 的高性能接口
+- **异步任务处理**: 支持大文件的并发转换
+- **任务管理**: 完整的任务状态追踪和历史记录
+- **自动清理**: 智能磁盘空间管理，可配置保留最近 N 条任务
 
-**目标**: 提供媲美桌面版的用户界面和交互体验
+### 🤖 AI 助手集成 (MCP)
+- **MCP 协议支持**: 可连接到 Claude Desktop 或 Cursor
+- **本地文件处理**: AI 助手可直接读取和转换本地 PDF 文件
+- **无缝集成**: 在 AI 对话中直接调用转换服务
 
-- **任务管理优化**
-  - [ ] 引入 Ant Design `Tag` 和 `Progress` 组件，美化任务状态显示
-  - [ ] 添加任务操作入口：Preview（预览）、Retry（重试）、Delete（删除）
-  - [ ] 实现任务列表的虚拟滚动，支持大量任务高效展示
+### 🐳 部署友好
+- **Docker 一键部署**: 单条命令启动完整服务
+- **服务器面板优化**: 兼容 1Panel、宝塔等面板
+- **配置灵活**: 支持环境变量和 Web 界面配置
 
-- **实时进度反馈** ⭐ 核心功能
-  - [ ] 实现 **SSE (Server-Sent Events)** 机制
-  - [ ] 后端 `/api/v1/events` 端点推送 `task:progress` 和 `task:status` 事件
-  - [ ] 前端 `useTaskEvents` Hook 自动更新任务状态，无需手动刷新
-  - [ ] 实时显示当前处理页码和转换进度
+## 🚀 快速开始
 
-- **双屏预览页面** (`/preview/:id`)
-  - [ ] **左侧**: PDF 源文件图片预览（支持懒加载、缩放、旋转）
-  - [ ] **右侧**: Markdown 渲染结果（支持语法高亮、LaTeX 公式）
-  - [ ] **交互**: 可拖拽的分隔条调整左右宽度（使用 Ant Design `<Splitter>` 组件）
-  - [ ] **导航**: 底部页码导航栏，支持快速跳转和逐页对比
+### 方式一：Docker 部署（推荐）
 
-### Phase 2: 后端架构增强 🔧
+#### 前置要求
+- Docker 20.10+
+- Docker Compose 2.0+
 
-**目标**: 提升性能、可扩展性和稳定性
+#### 启动服务
 
-- **实时通信**
-  - [ ] 实现基于 `asyncio` 的 SSE 事件流推送
-  - [ ] 支持多客户端并发连接和断线重连
+```bash
+# 克隆仓库
+git clone https://github.com/KaolaMiao/markPDFdown-mcp.git
+cd markPDFdown-mcp
 
-- **API 优化**
-  - [ ] 分页 API: `GET /tasks/{id}/pages/{page}` - 避免一次性加载超大 JSON
-  - [ ] 批量操作 API: 批量删除、批量重试
-  - [ ] 文件流式传输: 支持大文件的流式上传和下载
+# 启动服务
+docker-compose up -d
 
-- **任务管理**
-  - [ ] 支持页码范围选择（如 "1-5, 8, 10-12"）
-  - [ ] 任务优先级队列
-  - [ ] 失败重试机制（指数退避策略）
+# 查看日志
+docker-compose logs -f backend
+```
 
-### Phase 3: 高级功能 ✨
+服务启动后：
+- 前端界面：http://localhost:18080
+- 后端 API：http://localhost:18000
+- 健康检查：http://localhost:18000/health
 
-**参考桌面版的功能设计**
+#### 配置 LLM 服务
 
-- **多提供商支持**
-  - [ ] OpenAI、Anthropic Claude、Google Gemini、Ollama（本地模型）
-  - [ ] 统一的 LLM 接口抽象（参考桌面版 `ILLMClient` 接口设计）
-  - [ ] 动态切换模型和提供商
+访问 `http://localhost:18080`，在设置页面配置：
+- **API Key**: 你的 LLM 服务密钥
+- **Model**: 模型名称（如 `gemini-3.0-flash-exp`）
+- **API Base**: LLM 服务地址（可选）
 
-- **文件处理增强**
-  - [ ] 图片文件支持（PNG、JPG）
-  - [ ] Office 文档支持（Word、PPT）
-  - [ ] 文件分割功能（按页码范围拆分 PDF）
+### 方式二：本地开发
 
-- **多语言支持** (i18n)
-  - [ ] 英文、简体中文、日语、俄语、阿拉伯语、波斯语
-  - [ ] 使用 `react-i18next` 实现国际化
+#### 后端启动
 
-- **数据持久化升级**
-  - [ ] 从 SQLite 迁移到 PostgreSQL（支持高并发）
-  - [ ] 任务详情表：记录每页的转换状态和内容
-  - [ ] 提供商和模型管理：动态配置 LLM 服务
+```bash
+cd backend
 
-### Phase 4: 企业级特性 🏢
+# 安装依赖（使用 uv）
+uv sync
 
-**面向生产环境的增强**
+# 配置环境变量
+cp .env.example .env
+# 编辑 .env 文件，填入 API_KEY 等配置
 
-- **安全与认证**
-  - [ ] JWT 用户认证
-  - [ ] API Key 管理
-  - [ ] 文件访问权限控制
+# 启动后端服务
+uv run uvicorn src.api.main:app --reload --port 8000
+```
 
-- **监控与日志**
-  - [ ] 集成 Prometheus + Grafana 监控
-  - [ ] 结构化日志（JSON 格式）
-  - [ ] 任务执行统计和性能分析
+#### 前端启动
 
-- **可观测性**
-  - [ ] 健康检查端点（`/health`）
-  - [ ] OpenAPI/Swagger 文档
-  - [ ] 错误追踪（Sentry 集成）
+```bash
+cd frontend
 
-- **部署优化**
-  - [ ] Kubernetes Helm Charts
-  - [ ] 水平扩展支持（多实例负载均衡）
-  - [ ] Redis 队列（替代 Celery，简化部署）
+# 安装依赖
+npm install
 
-### 技术债务清理 🧹
+# 启动开发服务器
+npm run dev
+```
 
-- [ ] 完善单元测试覆盖率（目标：80%+）
-- [ ] 集成测试和端到端测试
-- [ ] 代码质量：ESLint、Ruff、Pre-commit hooks
-- [ ] 文档完善：API 文档、部署指南、贡献指南
+访问 http://localhost:5173 查看前端界面。
 
----
+## 📚 使用指南
 
-## 🛠️ 快速部署 (服务器端)
+### Web 界面使用
 
-我们推荐使用 Docker Compose 在服务器上部署。
+1. **上传文件**: 拖拽 PDF 文件到上传区域
+2. **选择模型**: 在设置中配置 LLM 模型
+3. **开始转换**: 点击转换按钮
+4. **下载结果**: 转换完成后下载 Markdown 文件
 
-1. **上传代码**: 将项目上传至 `/opt/1panel/apps/markPDFdown`。
-2. **初始化**:
-   ```bash
-   mkdir -p /opt/1panel/apps/markPDFdown/backend/files
-   touch /opt/1panel/apps/markPDFdown/backend/tasks.db
-   ```
-3. **域名配置**: 建议使用 1Panel/宝塔 的“反向代理”将 `p2m.384921.XYZ` 指向容器端口 `18080`。
+### MCP 协议集成
 
-详细步骤请参阅：[**DEPLOY.md**](DEPLOY.md)
+在 Claude Desktop 配置文件中添加：
 
-## 🤖 AI 助手集成 (MCP 服务)
+```json
+{
+  "mcpServers": {
+    "markpdfdown": {
+      "command": "uv",
+      "args": ["run", "python", "src/mcp_server.py"],
+      "cwd": "/path/to/markPDFdown-mcp/backend",
+      "env": {
+        "API_BASE": "http://localhost:8000/api/v1"
+      }
+    }
+  }
+}
+```
 
-让 AI 助手直接读取并转换你的本地 PDF：
+然后在对话中使用：
+```
+"请帮我把桌面上的 report.pdf 转换成 Markdown 格式"
+```
 
-1. **修改本地配置**:
-   在 Claude Desktop 配置文件中添加：
-   ```json
-   {
-     "mcpServers": {
-       "markpdfdown": {
-         "command": "uv",
-         "args": ["run", "python", "src/mcp_server.py"],
-         "cwd": "D:\\MyTools\\markPDFdown-mcp\\backend",
-         "env": {
-           "API_BASE": "http://p2m.384921.XYZ/api/v1"
-         }
-       }
-     }
-   }
-   ```
+### API 调用示例
 
-2. **对话使用**:
-   > "Claude，帮我把桌面上的合同.pdf 转换成 Markdown 内容。"
+```bash
+# 上传 PDF
+curl -X POST http://localhost:8000/api/v1/upload \
+  -F "file=@document.pdf"
 
-详细指南：[**mcp_install_guide.md**](mcp_install_guide.md)
+# 查询任务状态
+curl http://localhost:8000/api/v1/tasks/{task_id}
 
-## 📄 开源协议
+# 下载结果
+curl http://localhost:8000/api/v1/tasks/{task_id}/download \
+  -o output.md
 
-本项目采用 **Apache License 2.0** 开源协议。
+# 列出所有任务
+curl http://localhost:8000/api/v1/tasks?limit=10&skip=0
+```
+
+## 🛠️ 技术栈
+
+### 后端
+- **框架**: FastAPI 0.109+ - 现代异步 Web 框架
+- **数据库**: SQLite + SQLAlchemy 2.0 (async)
+- **LLM 接口**: LiteLLM 1.18+ - 统一的多模型接口
+- **PDF 处理**: PyMuPDF (fitz) - 高性能 PDF 解析
+- **异步处理**: Python asyncio + BackgroundTasks
+
+### 前端
+- **框架**: React 19 + TypeScript
+- **构建工具**: Vite 7
+- **UI 组件**: Ant Design 6
+- **状态管理**: React Hooks
+- **HTTP 客户端**: Fetch API
+
+### 部署
+- **容器化**: Docker + Docker Compose
+- **Web 服务器**: Nginx (前端)
+- **进程管理**: Uvicorn (后端)
+
+## 📁 项目结构
+
+```
+markPDFdown-mcp/
+├── backend/                 # 后端服务
+│   ├── src/
+│   │   ├── api/            # FastAPI 路由和设置
+│   │   ├── db/             # 数据库模型和连接
+│   │   ├── worker/         # 异步任务处理器
+│   │   └── mcp_server.py   # MCP 协议服务器
+│   ├── tests/              # 后端测试
+│   ├── Dockerfile          # 后端镜像构建
+│   └── pyproject.toml      # Python 依赖配置
+│
+├── frontend/               # 前端应用
+│   ├── src/
+│   │   ├── components/     # React 组件
+│   │   ├── pages/          # 页面组件
+│   │   └── services/       # API 客户端
+│   ├── Dockerfile          # 前端镜像构建
+│   └── package.json        # Node.js 依赖
+│
+├── markpdfdown_core/       # 核心转换库
+│   └── src/markpdfdown/    # PDF 转换核心逻辑
+│
+├── docker-compose.yml      # 服务编排配置
+├── CLAUDE.md              # Claude Code 开发指南
+└── README.md              # 项目文档
+```
+
+## ⚙️ 配置说明
+
+### 环境变量
+
+| 变量 | 说明 | 默认值 |
+|------|------|--------|
+| `API_KEY` | LLM 服务密钥 | - |
+| `API_BASE` | LLM 服务地址 | - |
+| `MODEL_NAME` | 模型名称 | `gemini-3.0-flash-exp` |
+| `CONCURRENCY` | 并发处理数 | `2` |
+| `MAX_TASKS` | 保留任务数 | `20` |
+| `TEMPERATURE` | LLM 温度参数 | `0.3` |
+| `MAX_TOKENS` | 最大 token 数 | `8192` |
+| `USE_CELERY` | 是否使用 Celery | `false` |
+
+### Web 界面配置
+
+也可以在 Web 界面的设置页面修改上述配置，配置会持久化保存。
+
+## 🔧 开发指南
+
+### 运行测试
+
+```bash
+# 后端测试
+cd backend
+uv run pytest
+
+# 前端测试
+cd frontend
+npm run test
+
+# 测试覆盖率
+npm run test:coverage
+```
+
+### 代码规范
+
+```bash
+# Python 代码检查
+cd backend
+uv run ruff check
+uv run ruff format
+
+# JavaScript 代码检查
+cd frontend
+npm run lint
+```
+
+详细的开发指南请参考 [CLAUDE.md](./CLAUDE.md)。
+
+## 📖 API 文档
+
+启动服务后，访问以下地址查看完整 API 文档：
+
+- **Swagger UI**: http://localhost:8000/docs
+- **ReDoc**: http://localhost:8000/redoc
+
+主要端点：
+
+| 端点 | 方法 | 说明 |
+|------|------|------|
+| `/api/v1/upload` | POST | 上传 PDF 文件 |
+| `/api/v1/tasks` | GET | 获取任务列表 |
+| `/api/v1/tasks/{id}` | GET | 获取任务详情 |
+| `/api/v1/tasks/{id}/download` | GET | 下载转换结果 |
+| `/api/v1/settings` | GET/POST | 获取/更新配置 |
+| `/health` | GET | 健康检查 |
+
+## 🗺️ 路线图
+
+- [ ] **实时进度**: SSE 推送转换进度
+- [ ] **双屏预览**: PDF 和 Markdown 并排预览
+- [ ] **批量处理**: 支持多文件并发转换
+- [ ] **多提供商**: OpenAI、Claude、Ollama 等
+- [ ] **页码范围**: 支持指定页面转换
+- [ ] **多语言**: 中英文界面支持
+
+## ❓ 常见问题
+
+### Q: 支持哪些 LLM 模型？
+
+A: 通过 LiteLLM 支持，包括：
+- Google Gemini: `gemini-3.0-flash-exp`, `gemini-pro-vision`
+- OpenAI: `gpt-4o`, `gpt-4o-mini`
+- Anthropic: `claude-3-5-sonnet`
+- Ollama: `llava`, `llama3.2-vision`
+
+### Q: 如何提高转换速度？
+
+A: 可通过以下方式优化：
+- 增加 `CONCURRENCY` 参数（并发处理页数）
+- 使用更快的模型（如 Gemini Flash）
+- 部署在性能更好的服务器
+
+### Q: 转换失败怎么办？
+
+A: 检查以下几点：
+- API Key 是否正确
+- 网络连接是否正常
+- PDF 文件是否损坏
+- 查看后端日志：`docker logs markpdfdown-backend`
+
+### Q: 支持多大的 PDF 文件？
+
+A: 理论上无限制，但建议：
+- 单文件 < 100MB
+- 页数 < 500 页
+- 可通过分批上传大文件
+
+## 🤝 贡献
+
+欢迎贡献代码、报告问题或提出建议！
+
+1. Fork 本仓库
+2. 创建特性分支 (`git checkout -b feature/AmazingFeature`)
+3. 提交更改 (`git commit -m 'feat: 添加某个功能'`)
+4. 推送到分支 (`git push origin feature/AmazingFeature`)
+5. 开启 Pull Request
+
+贡献指南请参考 [CONTRIBUTING.md](./CONTRIBUTING.md)。
+
+## 📄 许可证
+
+本项目采用 Apache License 2.0 开源协议。
 
 Copyright 2025 KaolaMiao
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-
-本项目是基于 [MarkPDFdown](https://github.com/markpdfdown) 项目（Apache-2.0）的衍生云端版本，
-遵循原项目的开源协议要求，继续使用 Apache-2.0 协议。
+本项目是基于 [MarkPDFdown](https://github.com/markpdfdown) 项目（Apache-2.0）的云端衍生版本。
 
 ## 🙏 致谢
 
-### 原创项目
+感谢以下开源项目：
 
-本项目基于以下优秀的开源项目进行开发：
-
-- **[MarkPDFdown/markpdfdown](https://github.com/markpdfdown/markpdfdown)** - 核心转换逻辑库
-  - 感谢原作者提供的基于多模态 LLM 的 PDF 转 Markdown 核心算法
-
-- **[MarkPDFdown/markpdfdown-desktop](https://github.com/markpdfdown/markpdfdown-desktop)** - 桌面应用程序
-  - 本项目的云端版本参考了桌面版的架构设计
-  - 桌面版提供了优秀的用户体验设计，为后端 API 设计提供了参考
-
-### 架构设计学习
-
-桌面版采用了优秀的 **Clean Architecture（整洁架构）** 设计模式，本项目计划逐步借鉴其架构思想：
-
-**核心架构层次**：
-- **Domain Layer（领域层）**: 纯业务逻辑和接口定义，无外部依赖
-  - 仓库接口（`TaskRepository`, `ProviderRepository`）
-  - LLM 客户端接口（`ILLMClient`）
-  - 分割器接口（`ISplitter`）
-  - 页码范围解析器（`PageRangeParser`）
-
-- **Application Layer（应用层）**: 应用业务逻辑和编排
-  - Worker 协调器（`WorkerOrchestrator`）
-  - 模型服务（`ModelService`）
-  - 三个核心 Worker：
-    - `SplitterWorker` - 文件分割（PDF → 图片）
-    - `ConverterWorker` - 页面转换（图片 → Markdown）
-    - `MergerWorker` - 结果合并（多页 → 完整文档）
-
-- **Infrastructure Layer（基础设施层）**: 外部依赖实现
-  - 数据库（Prisma + SQLite）
-  - LLM 适配器（OpenAI、Claude、Gemini、Ollama）
-  - 文件分割器（PDF Splitter、Image Splitter）
-  - 文件服务（`FileService`）
-
-- **Shared Layer（共享层）**: 跨层关注点
-  - 事件总线（`EventBus`）用于 Worker 间通信
-
-**关键技术亮点**：
-- ✨ **优雅的依赖注入**: 使用依赖倒置原则，高层不依赖低层
-- ✨ **事件驱动架构**: Worker 通过 EventBus 通信，解耦合
-- ✨ **优雅关闭**: Worker 支持信号处理和资源清理
-- ✨ **TypeScript 严格模式**: 类型安全，减少运行时错误
-- ✨ **完整的测试覆盖**: 单元测试、集成测试、E2E 测试
-
-同时感谢以下开源技术栈的支持：
-
+- **[MarkPDFdown/markpdfdown](https://github.com/markpdfdown/markpdfdown)** - 核心 PDF 转换算法
+- **[MarkPDFdown/markpdfdown-desktop](https://github.com/markpdfdown/markpdfdown-desktop)** - 优秀的桌面版设计参考
 - **FastAPI** - 现代化的 Python Web 框架
-- **React + Ant Design** - 前端用户界面
 - **LiteLLM** - 统一的 LLM 接口
-- **MCP (Model Context Protocol)** - AI 助手集成协议
-
----
+- **Ant Design** - 优秀的 React UI 组件库
 
 ## 📞 联系方式
 
-- 问题反馈：[GitHub Issues](https://github.com/KaolaMiao/markPDFdown-mcp/issues)
-- 功能建议：[GitHub Discussions](https://github.com/KaolaMiao/markPDFdown-mcp/discussions)
+- **问题反馈**: [GitHub Issues](https://github.com/KaolaMiao/markPDFdown-mcp/issues)
+- **功能建议**: [GitHub Discussions](https://github.com/KaolaMiao/markPDFdown-mcp/discussions)
+- **邮箱**: (可选)
+
+---
+
+⭐ 如果这个项目对你有帮助，请给它一个 Star！
