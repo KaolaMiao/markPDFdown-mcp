@@ -6,11 +6,21 @@ import base64
 import logging
 import time
 from typing import Optional
+from dataclasses import dataclass
 
 import litellm
 from litellm import completion
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class CompletionResult:
+    """LLM completion 结果"""
+    content: str
+    input_tokens: int = 0
+    output_tokens: int = 0
+    total_tokens: int = 0
 
 
 class LLMClient:
@@ -29,7 +39,11 @@ class LLMClient:
         self.model_name = model_name
 
         # Configure LiteLLM logging
-        litellm.set_verbose = False
+        litellm.set_verbose = True  # 启用详细日志用于调试
+
+        # 设置 litellm 日志级别
+        import logging
+        logging.getLogger("litellm").setLevel(logging.DEBUG)
 
     def completion(
         self,
@@ -39,7 +53,7 @@ class LLMClient:
         temperature: float = 0.3,
         max_tokens: int = 8192,
         retry_times: int = 3,
-    ) -> str:
+    ) -> CompletionResult:
         """
         Create chat completion with multimodal support
 
@@ -52,7 +66,7 @@ class LLMClient:
             retry_times: Number of retries
 
         Returns:
-            Generated response content
+            CompletionResult with content and token usage
         """
         # Build user content with text and images
         user_content = [{"type": "text", "text": user_message}]
@@ -91,7 +105,18 @@ class LLMClient:
                 if not response.choices:
                     raise Exception("No response from API")
 
-                return response.choices[0].message.content
+                # 提取 token 使用情况
+                usage = response.usage
+                input_tokens = usage.prompt_tokens if usage else 0
+                output_tokens = usage.completion_tokens if usage else 0
+                total_tokens = usage.total_tokens if usage else (input_tokens + output_tokens)
+
+                return CompletionResult(
+                    content=response.choices[0].message.content,
+                    input_tokens=input_tokens,
+                    output_tokens=output_tokens,
+                    total_tokens=total_tokens
+                )
 
             except Exception as e:
                 logger.error(

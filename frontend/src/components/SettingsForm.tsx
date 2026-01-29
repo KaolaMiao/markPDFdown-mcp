@@ -1,11 +1,21 @@
 import React, { useEffect } from 'react';
-import { Form, Input, Select, InputNumber, Button, message, Card } from 'antd';
+import { Form, Input, Select, InputNumber, Button, Card, App } from 'antd';
 import { ApiClient } from '../services/api';
-import type { Settings } from '../services/api';
+
+// 定义类型内联，避免导入问题
+interface Settings {
+  provider: string;
+  apiKey: string;
+  baseUrl?: string;
+  model: string;
+  concurrency: number;
+}
 
 export const SettingsForm: React.FC = () => {
+    const { message } = App.useApp();
     const [form] = Form.useForm();
     const [loading, setLoading] = React.useState(false);
+    const [initialLoading, setInitialLoading] = React.useState(true);
 
     useEffect(() => {
         const loadSettings = async () => {
@@ -14,12 +24,13 @@ export const SettingsForm: React.FC = () => {
                 form.setFieldsValue(settings);
             } catch (error) {
                 console.error(error);
-                // message.error('Failed to load settings'); 
-                // Failing silently or showing error is fine, test expects functionality.
+                message.error('Failed to load settings');
+            } finally {
+                setInitialLoading(false);
             }
         };
         loadSettings();
-    }, [form]);
+    }, [form, message]);
 
     const onFinish = async (values: Settings) => {
         setLoading(true);
@@ -34,13 +45,12 @@ export const SettingsForm: React.FC = () => {
     };
 
     return (
-        <Card title="LLM Configuration" className="max-w-2xl mx-auto mt-8 shadow-md">
+        <Card title="LLM Configuration" className="max-w-2xl mx-auto mt-8 shadow-md" loading={initialLoading}>
             <Form
                 form={form}
                 layout="vertical"
                 onFinish={onFinish}
                 initialValues={{
-                    provider: 'openai',
                     concurrency: 5,
                 }}
             >
@@ -84,8 +94,9 @@ export const SettingsForm: React.FC = () => {
                     name="concurrency"
                     label="Concurrency Limit"
                     rules={[{ required: true }]}
+                    tooltip="同时处理的页面数量。建议值：2-10（取决于 API 限流），最高可设 50"
                 >
-                    <InputNumber min={1} max={10} className="w-full" />
+                    <InputNumber min={1} max={50} className="w-full" />
                 </Form.Item>
 
                 <Form.Item>

@@ -21,5 +21,8 @@ export default defineConfig({
       },
     },
   },
+  optimizeDeps: {
+    exclude: ['src/services/api.ts'],
+  },
 })
 

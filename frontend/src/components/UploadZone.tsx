@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Upload, message, Card, Typography } from 'antd';
+import { Upload, Card, Typography, App } from 'antd';
 import { InboxOutlined } from '@ant-design/icons';
 import { ApiClient } from '../services/api';
 import type { UploadFile, UploadProps } from 'antd/es/upload/interface';
@@ -11,6 +11,7 @@ interface UploadZoneProps {
 }
 
 export const UploadZone: React.FC<UploadZoneProps> = ({ onUploadSuccess }) => {
+    const { message } = App.useApp();
     const [fileList, setFileList] = useState<UploadFile[]>([]);
 
     const customRequest: UploadProps['customRequest'] = async (options) => {
