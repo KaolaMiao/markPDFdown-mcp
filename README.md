@@ -1,6 +1,6 @@
 # MarkPDFdown 🚀
 
-MarkPDFdown 是一个利用 **Gemini 2.0 Flash Vision** 等多模态大模型，将 PDF 转换为高质量 Markdown 格式的开源系统。它能够精准识别复杂布局、表格、数学公式和图片。
+MarkPDFdown 是一个利用 **Gemini 3.0 Flash** 等多模态大模型，将 PDF 转换为高质量 Markdown 格式的开源系统。它能够精准识别复杂布局、表格、数学公式和图片。
 
 ## ✨ 主要功能
 
