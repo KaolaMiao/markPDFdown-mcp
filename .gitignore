@@ -94,7 +94,11 @@ ehthumbs.db
 Thumbs.db
 
 # Claude Code 配置（保留本地配置）
-.claude/settings.local.json
+.claude/
+
+# 本地开发文档（不上传到仓库）
+SKILL_USAGE_GUIDE.md
+SMART_COMMIT_GUIDE.md
 
 # 构建缓存
 .cache/
