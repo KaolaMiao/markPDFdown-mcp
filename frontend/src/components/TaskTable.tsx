@@ -1,8 +1,21 @@
 import React, { useEffect, useState } from 'react';
 import { Table, Tag, Button, Card, Space, Tooltip } from 'antd';
-import { DownloadOutlined, SyncOutlined, ReloadOutlined } from '@ant-design/icons';
+import { DownloadOutlined, EyeOutlined, SyncOutlined, ReloadOutlined } from '@ant-design/icons';
+import { useNavigate } from 'react-router-dom';
 import { ApiClient } from '../services/api';
-import type { Task } from '../services/api';
+
+// 定义类型内联，避免导入问题
+interface Task {
+  id: string;
+  task_id?: string;
+  file_name?: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  created_at?: string;
+  result?: string;
+  error?: string;
+  total_pages?: number;
+}
+
 import type { ColumnsType } from 'antd/es/table';
 
 interface TaskTableProps {
@@ -10,6 +23,7 @@ interface TaskTableProps {
 }
 
 export const TaskTable: React.FC<TaskTableProps> = ({ pollingInterval = 2000 }) => {
+    const navigate = useNavigate();
     const [tasks, setTasks] = useState<Task[]>([]);
     const [loading, setLoading] = useState(false);
     const [total, setTotal] = useState(0);
@@ -111,6 +125,17 @@ export const TaskTable: React.FC<TaskTableProps> = ({ pollingInterval = 2000 }) 
             key: 'action',
             render: (_, record) => (
                 <Space size="middle">
+                    {/* 查看按钮 - 已完成或正在处理的任务都可以查看 */}
+                    {(record.status === 'completed' || record.status === 'processing') && (
+                        <Button
+                            type="link"
+                            icon={<EyeOutlined />}
+                            onClick={() => navigate(`/preview/${record.id}`)}
+                        >
+                            查看
+                        </Button>
+                    )}
+                    {/* 下载按钮 - 只有已完成的任务可以下载 */}
                     {record.status === 'completed' && (
                         <Button
                             type="link"

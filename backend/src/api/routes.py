@@ -152,6 +152,8 @@ async def download_task(task_id: str, db: AsyncSession = Depends(get_db)):
 
 # Settings Endpoints - 使用持久化的 settings 模块
 from .settings import Settings, current_settings, save_settings_to_env, load_settings_from_env
+from fastapi.responses import StreamingResponse
+from .sse_manager import sse_manager
 
 @router.get("/settings", response_model=Settings)
 async def get_settings():
@@ -167,4 +169,235 @@ async def update_settings(settings: Settings):
     # 持久化到 .env 文件
     save_settings_to_env(settings)
     return current_settings
+
+
+# SSE Events Endpoints
+@router.get("/events")
+async def task_events(task_id: str):
+    """
+    SSE端点 - 实时推送任务进度
+
+    参数:
+        task_id: 任务ID
+
+    返回:
+        Server-Sent Events流
+
+    示例:
+        const eventSource = new EventSource('/api/v1/events?task_id=xxx');
+        eventSource.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            console.log('Progress:', data.progress);
+        };
+    """
+    return StreamingResponse(
+        sse_manager.event_generator(task_id),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",  # 禁用Nginx缓冲
+        }
+    )
+
+
+@router.get("/events/stats")
+async def events_stats():
+    """获取SSE连接统计信息"""
+    return sse_manager.get_stats()
+
+
+# Page Preview Endpoints
+@router.get("/tasks/{task_id}/pages/{page_num}")
+async def get_page_image(task_id: str, page_num: int, db: AsyncSession = Depends(get_db)):
+    """
+    获取指定页面的渲染图片
+
+    参数:
+        task_id: 任务ID
+        page_num: 页码 (从 1 开始)
+
+    返回:
+        页面图片文件 (jpg/png)
+    """
+    from fastapi.responses import FileResponse
+
+    # 验证任务是否存在
+    task = await db.get(Task, task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    # 验证页码是否有效（添加合理的上限）
+    if page_num < 1 or page_num > 10000:
+        raise HTTPException(status_code=400, detail=f"Invalid page number: {page_num}")
+    if task.total_pages and page_num > task.total_pages:
+        raise HTTPException(status_code=400, detail=f"Page {page_num} exceeds total pages ({task.total_pages})")
+
+    # 构建图片路径，支持 jpg 和 png 格式
+    task_dir = os.path.join(UPLOAD_DIR, task_id)
+
+    # 尝试 jpg 格式 (file_worker 默认格式)
+    image_path = os.path.join(task_dir, f"page_{page_num:04d}.jpg")
+    if not os.path.exists(image_path):
+        # 尝试 png 格式 (desktop_study 格式)
+        image_path = os.path.join(task_dir, f"page_{page_num}.png")
+
+    if not os.path.exists(image_path):
+        raise HTTPException(status_code=404, detail=f"Page {page_num} image not found")
+
+    return FileResponse(
+        image_path,
+        media_type="image/jpeg" if image_path.endswith(".jpg") else "image/png",
+        headers={"Cache-Control": "max-age=3600"}  # 缓存 1 小时
+    )
+
+
+@router.get("/tasks/{task_id}/pages/{page_num}/content")
+async def get_page_content(task_id: str, page_num: int, db: AsyncSession = Depends(get_db)):
+    """
+    获取指定页面的 Markdown 文本内容
+
+    架构改进:
+    - 直接读取每页的 markdown 文件 (page_0001.md)
+    - 无需分割最终的合并文件
+    - 支持实时预览 - 页面转换完成即可查看
+
+    参数:
+        task_id: 任务ID
+        page_num: 页码 (从 1 开始)
+
+    返回:
+        页面 Markdown 内容和状态信息
+    """
+    # 验证任务是否存在
+    task = await db.get(Task, task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    # 验证页码是否有效（添加合理的上限）
+    if page_num < 1 or page_num > 10000:
+        raise HTTPException(status_code=400, detail=f"Invalid page number: {page_num}")
+    if task.total_pages and page_num > task.total_pages:
+        raise HTTPException(status_code=400, detail=f"Page {page_num} exceeds total pages ({task.total_pages})")
+
+    # 构建页面 markdown 文件路径
+    task_dir = os.path.join(UPLOAD_DIR, task_id)
+    page_md_path = os.path.join(task_dir, f"page_{page_num:04d}.md")
+
+    # 检查页面文件是否存在
+    if not os.path.exists(page_md_path):
+        # 页面文件不存在,可能还未完成转换
+        if task.status == TaskStatus.PROCESSING:
+            return {
+                "page": page_num,
+                "status": task.status.value,
+                "content": None,
+                "message": "Page is being processed...",
+                "total_pages": task.total_pages
+            }
+        elif task.status == TaskStatus.PENDING:
+            return {
+                "page": page_num,
+                "status": task.status.value,
+                "content": None,
+                "message": "Task is pending...",
+                "total_pages": task.total_pages
+            }
+        elif task.status == TaskStatus.COMPLETED:
+            # 任务已完成但页面文件不存在 - 可能是生成中的延迟
+            # 返回 processing 状态让前端继续轮询
+            return {
+                "page": page_num,
+                "status": "processing",
+                "content": None,
+                "message": "Page is being finalized...",
+                "total_pages": task.total_pages
+            }
+        else:
+            raise HTTPException(status_code=404, detail=f"Page {page_num} content not found")
+
+    # 读取页面 markdown 内容
+    try:
+        with open(page_md_path, "r", encoding="utf-8") as f:
+            page_content = f.read()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to read page content: {str(e)}")
+
+    return {
+        "page": page_num,
+        "status": task.status.value,
+        "content": page_content,
+        "total_pages": task.total_pages
+    }
+
+
+@router.post("/tasks/{task_id}/pages/{page_num}/regenerate")
+async def regenerate_page(
+    task_id: str,
+    page_num: int,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    重新生成指定页面的 Markdown 内容
+
+    当用户对某页的识别结果不满意时，可以重新调用 LLM 进行识别
+
+    参数:
+        task_id: 任务ID
+        page_num: 页码 (从 1 开始)
+
+    返回:
+        重新生成任务的确认信息
+    """
+    # 验证任务是否存在
+    task = await db.get(Task, task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    # 验证页码是否有效（添加合理的上限）
+    if page_num < 1 or page_num > 10000:
+        raise HTTPException(status_code=400, detail=f"Invalid page number: {page_num}")
+    if task.total_pages and page_num > task.total_pages:
+        raise HTTPException(status_code=400, detail=f"Page {page_num} exceeds total pages ({task.total_pages})")
+
+    # 从持久化文件加载最新设置
+    from .settings import load_settings_from_env
+    settings = load_settings_from_env()
+    model_name = settings.model
+    concurrency = settings.concurrency
+    api_key = settings.apiKey
+    base_url = settings.baseUrl
+
+    # 检查任务目录是否存在
+    task_dir = os.path.join(UPLOAD_DIR, task_id)
+    if not os.path.exists(task_dir):
+        raise HTTPException(status_code=404, detail="Task directory not found")
+
+    # 查找对应的页面图片文件
+    page_image_path = os.path.join(task_dir, f"page_{page_num:04d}.jpg")
+    if not os.path.exists(page_image_path):
+        # 也可能尝试 .png 格式
+        page_image_path = os.path.join(task_dir, f"page_{page_num:04d}.png")
+        if not os.path.exists(page_image_path):
+            raise HTTPException(status_code=404, detail=f"Page {page_num} image not found")
+
+    # 启动后台任务重新生成该页面
+    from src.worker.tasks import regenerate_single_page
+    background_tasks.add_task(
+        regenerate_single_page,
+        task_id,
+        page_num,
+        str(page_image_path),
+        model_name,
+        api_key,
+        base_url
+    )
+
+    return {
+        "message": f"Page {page_num} regeneration started",
+        "task_id": task_id,
+        "page_num": page_num,
+        "status": "regenerating"
+    }
 

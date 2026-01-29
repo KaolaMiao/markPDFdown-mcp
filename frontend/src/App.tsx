@@ -1,5 +1,7 @@
 import { ConfigProvider, App as AntApp } from 'antd';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { Dashboard } from './pages/Dashboard';
+import { Preview } from './pages/Preview';
 
 function App() {
   return (
@@ -11,7 +13,12 @@ function App() {
       }}
     >
       <AntApp>
-        <Dashboard />
+        <BrowserRouter>
+          <Routes>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/preview/:taskId" element={<Preview />} />
+          </Routes>
+        </BrowserRouter>
       </AntApp>
     </ConfigProvider>
   );
