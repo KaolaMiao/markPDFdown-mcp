@@ -69,8 +69,12 @@ async def run_async_process(task_id: str, input_path: str, model_name: str, conc
         pdf_name = os.path.basename(input_path)
         md_name = os.path.splitext(pdf_name)[0] + ".md"
         output_file = os.path.join(pdf_dir, md_name)
-        with open(output_file, "w", encoding="utf-8") as f:
+
+        # 使用原子操作：先写临时文件，再重命名
+        output_tmp = output_file + ".tmp"
+        with open(output_tmp, "w", encoding="utf-8") as f:
             f.write(markdown_content)
+        os.replace(output_tmp, output_file)
 
         async with AsyncSessionLocal() as session:
             task = await session.get(Task, task_id)
@@ -230,16 +234,21 @@ async def regenerate_single_page(
             from src.db.database import AsyncSessionLocal
             from src.db.models import Task
 
-            async with AsyncSessionLocal() as session:
-                task = await session.get(Task, task_id)
-                if task:
-                    # 增加到现有的 token 计数
-                    if task.total_tokens:
-                        task.total_tokens += total_tokens_used
-                    else:
-                        task.total_tokens = total_tokens_used
-                    await session.commit()
-                    logger.info(f"📊 Updated total_tokens for task {task_id}: {task.total_tokens}")
+            try:
+                async with AsyncSessionLocal() as session:
+                    task = await session.get(Task, task_id)
+                    if task:
+                        # 累加所有 token 字段，保持数据一致性
+                        task.input_tokens = (task.input_tokens or 0) + (result.input_tokens or 0)
+                        task.output_tokens = (task.output_tokens or 0) + (result.output_tokens or 0)
+                        task.total_tokens = (task.total_tokens or 0) + total_tokens_used
+                        await session.commit()
+                        logger.info(f"📊 Updated tokens for task {task_id}: "
+                                  f"Input={task.input_tokens}, Output={task.output_tokens}, "
+                                  f"Total={task.total_tokens}")
+            except Exception as db_error:
+                logger.error(f"❌ Failed to update database for task {task_id}: {db_error}")
+                # 不抛出异常，因为文件已经保存成功
 
     except Exception as e:
         logger.error(f"❌ Failed to regenerate page {page_num}: {e}")
