@@ -9,15 +9,27 @@ services:
     container_name: markpdfdown-backend
     restart: always
     environment:
-      - API_KEY=${API_KEY}
-      - API_BASE=http://p2m.384921.XYZ/api/v1
-      - LLM_MAX_TASKS=20
-      - USE_CELERY=false  # 关键：生产环境建议先用简易模式，不需要 Redis
+      # LLM 提供商配置
+      - LLM_PROVIDER=${LLM_PROVIDER:-gemini}
+      - LLM_MODEL=${LLM_MODEL:-gemini-3.0-flash-exp}
+      - LLM_CONCURRENCY=${LLM_CONCURRENCY:-2}
+      - LLM_TEMPERATURE=${LLM_TEMPERATURE:-0.3}
+      - LLM_MAX_TOKENS=${LLM_MAX_TOKENS:-8192}
+      - LLM_MAX_TASKS=${LLM_MAX_TASKS:-20}
+      # API 密钥（从 .env 文件读取）
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      # API 基础 URL
+      - LLM_BASE_URL=${LLM_BASE_URL:-}
+      - OPENAI_API_BASE=${OPENAI_API_BASE:-}
+      # Docker 配置
+      - USE_CELERY=${USE_CELERY:-false}
       - PYTHONPATH=/app/backend:/app/markpdfdown_core/src
     volumes:
       - ./backend/files:/app/backend/files      # 转换产物
       - ./backend/tasks.db:/app/backend/tasks.db # 任务记录
-      - ./backend/.env:/app/backend/.env        # 网页设置持久化
+      - ./backend/.env:/app/backend/.env        # 环境配置
     ports:
       - "127.0.0.1:18000:8000"
 
