@@ -1,0 +1,33 @@
+version: '3.8'
+
+services:
+  # 后端 (合并了 API 和 Worker, 使用 BackgroundTasks 模式)
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: markpdfdown-backend
+    restart: always
+    environment:
+      - API_KEY=${API_KEY}
+      - API_BASE=http://p2m.384921.XYZ/api/v1
+      - LLM_MAX_TASKS=20
+      - USE_CELERY=false  # 关键：生产环境建议先用简易模式，不需要 Redis
+      - PYTHONPATH=/app/backend:/app/markpdfdown_core/src
+    volumes:
+      - ./backend/files:/app/backend/files      # 转换产物
+      - ./backend/tasks.db:/app/backend/tasks.db # 任务记录
+      - ./backend/.env:/app/backend/.env        # 网页设置持久化
+    ports:
+      - "127.0.0.1:18000:8000"
+
+  # 前端 (提供网页界面)
+  frontend:
+    build:
+      context: ./frontend
+    container_name: markpdfdown-frontend
+    restart: always
+    ports:
+      - "127.0.0.1:18080:80"
+    depends_on:
+      - backend

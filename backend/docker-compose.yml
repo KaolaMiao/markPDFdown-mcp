@@ -1,0 +1,33 @@
+services:
+  api:
+    build: .
+    command: uvicorn src.api.main:app --host 0.0.0.0 --port 8000 --reload
+    volumes:
+      - .:/app
+      - ../markpdfdown_core:/app/markpdfdown_core
+    ports:
+      - "8000:8000"
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - PYTHONPATH=/app:/app/markpdfdown_core/src
+      - MINERU_VLM_ENABLE=False
+      - CUDA_VISIBLE_DEVICES=-1
+    depends_on:
+      - redis
+
+  worker:
+    build: .
+    command: celery -A src.worker.celery_app worker --loglevel=info --concurrency=1
+    volumes:
+      - .:/app
+      - ../markpdfdown_core:/app/markpdfdown_core
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - PYTHONPATH=/app:/app/markpdfdown_core/src
+      - MINERU_VLM_ENABLE=False
+      - CUDA_VISIBLE_DEVICES=-1
+    depends_on:
+      - redis
+
+  redis:
+    image: redis:7-alpine

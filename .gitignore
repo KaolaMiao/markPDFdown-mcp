@@ -1,0 +1,102 @@
+# Python 虚拟环境
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+ENV/
+env/
+
+# Node.js 依赖
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# 前端构建产物
+frontend/dist/
+frontend/build/
+frontend/.vite/
+
+# 后端运行时文件
+backend/files/
+backend/tasks.db
+backend/tasks.db-*
+backend/*.db
+backend/.env
+backend/.env.*
+
+# 桌面版（学习参考代码，不上传）
+desktop_study/
+
+# 数据库文件
+*.db
+*.sqlite
+*.sqlite3
+
+# 环境配置
+.env
+.env.local
+.env.*.local
+*.env
+
+# 日志文件
+*.log
+logs/
+*.log.*
+
+# IDE 配置
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# 临时文件
+*.tmp
+*.temp
+nul
+Thumbs.db
+desktop.ini
+
+# 下载目录
+download/
+
+# 开发文档（不希望公开的内部文档）
+project_master_plan.md
+AGENTS.md
+CONTRIBUTING.md
+
+# 测试覆盖率
+coverage/
+.nyc_output/
+*.cover
+.hypothesis/
+.pytest_cache/
+
+# Docker 相关
+*.tar.gz
+
+# 操作系统文件
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Claude Code 配置（保留本地配置）
+.claude/settings.local.json
+
+# 构建缓存
+.cache/
+.parcel-cache/
+next-env.d.ts
