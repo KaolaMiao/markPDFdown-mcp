@@ -31,6 +31,7 @@ backend/tasks.db-*
 backend/*.db
 backend/.env
 backend/.env.*
+backend/.env.backup
 
 # 桌面版（学习参考代码，不上传）
 desktop_study/
@@ -45,6 +46,8 @@ desktop_study/
 .env.local
 .env.*.local
 *.env
+# 但允许 .env.example 配置模板
+!.env.example
 
 # 日志文件
 *.log

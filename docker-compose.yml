@@ -6,7 +6,7 @@ services:
     build:
       context: .
       dockerfile: backend/Dockerfile
-    container_name: markpdfdown-backend
+    container_name: markpdfdown-backend  # ⚠️ 测试环境改为: markpdfdown-backend-test
     restart: always
     environment:
       # LLM 提供商配置
@@ -27,19 +27,19 @@ services:
       - USE_CELERY=${USE_CELERY:-false}
       - PYTHONPATH=/app/backend:/app/markpdfdown_core/src
     volumes:
-      - ./backend/files:/app/backend/files      # 转换产物
-      - ./backend/tasks.db:/app/backend/tasks.db # 任务记录
-      - ./backend/.env:/app/backend/.env        # 环境配置
+      - ./backend/files:/app/backend/files              # ⚠️ 测试环境改为: ./backend/files-test
+      - ./backend/tasks.db:/app/backend/tasks.db         # ⚠️ 测试环境改为: ./backend/tasks-test.db
+      - ./backend/.env:/app/backend/.env                # ✅ 可以共享，或复制到: ./backend/.env-test
     ports:
-      - "127.0.0.1:18000:8000"
+      - "127.0.0.1:18000:8000"  # ⚠️ 测试环境改为: "127.0.0.1:18100:8000"
 
   # 前端 (提供网页界面)
   frontend:
     build:
       context: ./frontend
-    container_name: markpdfdown-frontend
+    container_name: markpdfdown-frontend  # ⚠️ 测试环境改为: markpdfdown-frontend-test
     restart: always
     ports:
-      - "127.0.0.1:18080:80"
+      - "127.0.0.1:18080:80"  # ⚠️ 测试环境改为: "127.0.0.1:18180:80"
     depends_on:
       - backend
