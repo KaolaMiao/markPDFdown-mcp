@@ -23,7 +23,22 @@ async def progress_callback(task_id: str, current_page: int, total_pages: int, p
         logger.error(f"Failed to send progress update: {e}")
 
 
+
+# 全局并发控制信号量 - 限制同时进行的任务数
+# 针对 2核4G 环境，默认限制为 2
+# 可以通过环境变量 MAX_CONCURRENT_TASKS 进行调整
+import os
+MAX_CONCURRENT_TASKS = int(os.getenv("MAX_CONCURRENT_TASKS", "2"))
+task_semaphore = asyncio.Semaphore(MAX_CONCURRENT_TASKS)
+
 async def run_async_process(task_id: str, input_path: str, model_name: str, concurrency: int = 2, api_key: str = None, base_url: str = None):
+    # 使用信号量限制并发任务数
+    async with task_semaphore:
+        logger.info(f"Acquired semaphore for task {task_id}. Active tasks: {MAX_CONCURRENT_TASKS - task_semaphore._value}")
+        await _run_async_process_internal(task_id, input_path, model_name, concurrency, api_key, base_url)
+
+async def _run_async_process_internal(task_id: str, input_path: str, model_name: str, concurrency: int = 2, api_key: str = None, base_url: str = None):
+
     logger.info(f"Starting async process for task {task_id}")
     logger.info(f"Task parameters: Input path: {input_path}, Model: {model_name}, Concurrency: {concurrency}")
 

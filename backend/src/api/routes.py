@@ -51,6 +51,71 @@ async def perform_cleanup(max_tasks: int):
         except Exception as e:
             print(f"Cleanup error: {e}")
 
+
+async def _process_upload_file(file: UploadFile, task_id: str):
+    """Internal helper to save file"""
+    # 创建任务专属文件夹: files/tasks/{task_id}/
+    task_dir = os.path.join(UPLOAD_DIR, task_id)
+    os.makedirs(task_dir, exist_ok=True)
+    
+    # 保存文件 - 保留原始文件名
+    original_filename = file.filename
+    file_path = os.path.join(task_dir, original_filename)
+    contents = await file.read()
+    with open(file_path, "wb") as buffer:
+        buffer.write(contents)
+        
+    return original_filename, os.path.abspath(file_path)
+
+def _create_task_obj(task_id: str, original_filename: str) -> Task:
+    """Internal helper to create Task object (not committed)"""
+    return Task(
+        id=task_id,
+        file_name=original_filename,
+        status=TaskStatus.PENDING,
+        total_pages=0
+    )
+
+def _get_processing_params():
+    """Helper to get processing parameters from settings"""
+    from .settings import load_settings_from_env
+    settings = load_settings_from_env()
+    return {
+        "model_name": settings.model,
+        "concurrency": settings.concurrency,
+        "api_key": settings.apiKey,
+        "base_url": settings.baseUrl,
+        "max_tasks": settings.maxTasks,
+        "use_celery": os.getenv("USE_CELERY", "true").lower() == "true"
+    }
+
+def _trigger_background_task(
+    background_tasks: BackgroundTasks, 
+    task_id: str, 
+    file_path: str, 
+    params: dict
+):
+    """Helper to trigger background processing"""
+    if params["use_celery"]:
+        convert_pdf_task.delay(
+            task_id, 
+            file_path, 
+            params["model_name"], 
+            params["concurrency"], 
+            params["api_key"], 
+            params["base_url"]
+        )
+    else:
+        background_tasks.add_task(
+            run_async_process, 
+            task_id, 
+            file_path, 
+            params["model_name"], 
+            params["concurrency"], 
+            params["api_key"], 
+            params["base_url"]
+        )
+
 @router.post("/upload", response_model=TaskResponse)
 async def upload_pdf(
     background_tasks: BackgroundTasks,
@@ -63,50 +128,71 @@ async def upload_pdf(
     # Generate Task ID
     task_id = str(uuid.uuid4())
     
-    # 创建任务专属文件夹: files/tasks/{task_id}/
-    task_dir = os.path.join(UPLOAD_DIR, task_id)
-    os.makedirs(task_dir, exist_ok=True)
-    
-    # 保存文件 - 保留原始文件名
-    original_filename = file.filename
-    file_path = os.path.join(task_dir, original_filename)
-    contents = await file.read()
-    with open(file_path, "wb") as buffer:
-        buffer.write(contents)
+    # Save file
+    original_filename, file_path_abs = await _process_upload_file(file, task_id)
         
-    # Create DB Task - 存储原始文件名
-    new_task = Task(
-        id=task_id,
-        file_name=original_filename,  # 保存原始文件名
-        status=TaskStatus.PENDING,
-        total_pages=0 # Will be updated by worker
-    )
+    # Create DB Task
+    new_task = _create_task_obj(task_id, original_filename)
     db.add(new_task)
     await db.commit()
     await db.refresh(new_task)
     
-    # Check execution mode
-    use_celery = os.getenv("USE_CELERY", "true").lower() == "true"
+    # Trigger processing
+    params = _get_processing_params()
+    _trigger_background_task(background_tasks, task_id, file_path_abs, params)
     
-    # 从持久化文件加载最新设置
-    from .settings import load_settings_from_env
-    settings = load_settings_from_env()
-    model_name = settings.model
-    concurrency = settings.concurrency
-    api_key = settings.apiKey
-    base_url = settings.baseUrl
-    
-    if use_celery:
-        # Celery Mode
-        convert_pdf_task.delay(task_id, os.path.abspath(file_path), model_name, concurrency, api_key, base_url)
-    else:
-        # Local Mode (BackgroundTasks)
-        background_tasks.add_task(run_async_process, task_id, os.path.abspath(file_path), model_name, concurrency, api_key, base_url)
-    
-    # 增加自动清理后台任务
-    background_tasks.add_task(perform_cleanup, settings.maxTasks)
+    # Cleanup task
+    background_tasks.add_task(perform_cleanup, params["max_tasks"])
     
     return new_task
+
+@router.post("/upload/batch", response_model=List[TaskResponse])
+async def upload_pdf_batch(
+    background_tasks: BackgroundTasks,
+    files: List[UploadFile] = File(...),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Batch upload multiple PDF files.
+    """
+    if not files:
+        raise HTTPException(status_code=400, detail="No files provided")
+        
+    tasks_to_create = []
+    file_paths = {} # task_id -> file_path
+    
+    # Process all files first
+    for file in files:
+        if not file.filename.lower().endswith(".pdf"):
+            continue # Skip non-pdf files or raise error? Skipping for now to be robust
+            
+        task_id = str(uuid.uuid4())
+        original_filename, file_path_abs = await _process_upload_file(file, task_id)
+        
+        new_task = _create_task_obj(task_id, original_filename)
+        tasks_to_create.append(new_task)
+        file_paths[task_id] = file_path_abs
+        
+    if not tasks_to_create:
+        raise HTTPException(status_code=400, detail="No valid PDF files found")
+        
+    # Batch DB insert
+    db.add_all(tasks_to_create)
+    await db.commit()
+    
+    # Refresh to populate fields if needed (though we created them)
+    # For list response, we might don't need refresh each, just use the objects
+    
+    # Trigger all tasks
+    params = _get_processing_params()
+    for task in tasks_to_create:
+        _trigger_background_task(background_tasks, task.id, file_paths[task.id], params)
+        
+    # Cleanup task (just once)
+    background_tasks.add_task(perform_cleanup, params["max_tasks"])
+    
+    return tasks_to_create
+
 
 @router.get("/tasks")
 async def list_tasks(skip: int = 0, limit: int = 20, db: AsyncSession = Depends(get_db)):
