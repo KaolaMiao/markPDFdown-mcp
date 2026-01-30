@@ -36,7 +36,8 @@ export class ApiClient {
     return response.json();
   }
 
-  static async uploadFile(file: File): Promise<{ task_id: string; status: string }> {
+
+  static async uploadFile(file: File): Promise<Task> {
     const formData = new FormData();
     formData.append('file', file);
     return this.request('/upload', {
@@ -45,15 +46,34 @@ export class ApiClient {
     });
   }
 
+  static async uploadFiles(files: File[]): Promise<Task[]> {
+    const formData = new FormData();
+    files.forEach(file => {
+      formData.append('files', file);
+    });
+    return this.request('/upload/batch', {
+      method: 'POST',
+      body: formData,
+    });
+  }
+
+
   static async getTasks(): Promise<{ items: Task[]; total: number }> {
     return this.request('/tasks', {
       method: 'GET',
     });
   }
 
+
   static async getTask(taskId: string): Promise<Task> {
     return this.request(`/tasks/${taskId}`, {
       method: 'GET',
+    });
+  }
+
+  static async deleteTask(taskId: string): Promise<void> {
+    return this.request(`/tasks/${taskId}`, {
+      method: 'DELETE',
     });
   }
 
