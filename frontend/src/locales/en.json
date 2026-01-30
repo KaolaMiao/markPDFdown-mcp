@@ -1,0 +1,48 @@
+{
+    "app": {
+        "title": "MarkPDFdown Server",
+        "description": "MarkPDFdown Intelligent Conversion System",
+        "instruction": "Instructions: Upload PDF files, and the system will automatically use multimodal large models (GPT-4o, Claude 3.5, Gemini 1.5) for high-precision Markdown conversion.",
+        "settings": "Settings",
+        "footer": "MarkPDFdown Server ©{{year}} Created by deep-diver"
+    },
+    "upload": {
+        "dragText": "Click or drag file to this area to upload",
+        "hint": "Support for multiple PDF files. Files will be processed in batch.",
+        "success": "{{fileName}} uploaded successfully",
+        "batchSuccess": "{{count}} files uploaded successfully",
+        "fail": "Upload failed: {{error}}",
+        "batchFail": "Batch upload failed: {{error}}"
+    },
+    "task": {
+        "title": "Processing Tasks",
+        "refresh": "Refresh manually",
+        "columns": {
+            "id": "ID",
+            "fileName": "File Name",
+            "status": "Status",
+            "createdAt": "Created At",
+            "action": "Action"
+        },
+        "status": {
+            "pending": "PENDING",
+            "processing": "PROCESSING",
+            "completed": "COMPLETED",
+            "failed": "FAILED"
+        },
+        "action": {
+            "view": "View",
+            "download": "Download",
+            "delete": "Delete"
+        },
+        "deleteConfirm": {
+            "title": "Confirm Delete",
+            "content": "Are you sure you want to delete this task? This action cannot be undone.",
+            "ok": "Delete",
+            "cancel": "Cancel",
+            "success": "Task deleted successfully",
+            "fail": "Failed to delete task"
+        },
+        "downloadFail": "Download failed, please try again later"
+    }
+}

@@ -10,9 +10,12 @@ interface UploadZoneProps {
     onUploadSuccess?: () => void;
 }
 
+import { useTranslation } from 'react-i18next';
+
 export const UploadZone: React.FC<UploadZoneProps> = ({ onUploadSuccess }) => {
     const { message } = App.useApp();
     const [fileList, setFileList] = useState<UploadFile[]>([]);
+    const { t } = useTranslation();
 
 
     // Batch Upload Scheduler Logic
@@ -27,10 +30,6 @@ export const UploadZone: React.FC<UploadZoneProps> = ({ onUploadSuccess }) => {
         // Register file to scheduler
         uploadQueue.add(file as File, reqSuccess, reqError);
     };
-
-
-
-
 
     const props: UploadProps = {
         name: 'file',
@@ -56,13 +55,14 @@ export const UploadZone: React.FC<UploadZoneProps> = ({ onUploadSuccess }) => {
                     <InboxOutlined />
                 </p>
                 <p className="ant-upload-text text-xl font-medium text-gray-700">
-                    Click or drag file to this area to upload
+                    {t('upload.dragText')}
                 </p>
                 <p className="ant-upload-hint text-gray-500 mt-2 text-base">
-                    Support for multiple PDF files. Files will be processed in batch.
+                    {t('upload.hint')}
                 </p>
             </Dragger>
         </Card>
     );
 };
+
 

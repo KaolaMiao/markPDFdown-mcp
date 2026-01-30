@@ -1,4 +1,5 @@
 import { ApiClient } from '../services/api';
+import i18n from '../i18n';
 
 export class BatchUploadScheduler {
     private queue: {
@@ -36,24 +37,24 @@ export class BatchUploadScheduler {
         if (currentQueue.length === 0) return;
 
         if (currentQueue.length === 1) {
-            // Single file mode - use legacy endpoint
+            // Single file mode
             const item = currentQueue[0];
             try {
                 await ApiClient.uploadFile(item.file);
-                this.messageApi?.success(`${item.file.name} uploaded successfully`);
+                this.messageApi?.success(i18n.t('upload.success', { fileName: item.file.name }));
                 item.onSuccess?.('ok');
                 if (this.globalOnSuccess) this.globalOnSuccess('ok');
                 if (this.parentOnUploadSuccess) this.parentOnUploadSuccess();
             } catch (error) {
-                this.messageApi?.error(`Upload failed: ${error}`);
+                this.messageApi?.error(i18n.t('upload.fail', { error }));
                 item.onError?.(error as Error);
             }
         } else {
-            // Batch mode - use new endpoint
+            // Batch mode
             const files = currentQueue.map(item => item.file);
             try {
-                const tasks = await ApiClient.uploadFiles(files);
-                this.messageApi?.success(`${files.length} files uploaded successfully`);
+                await ApiClient.uploadFiles(files);
+                this.messageApi?.success(i18n.t('upload.batchSuccess', { count: files.length }));
 
                 // Notify all items of success
                 currentQueue.forEach(item => {
@@ -63,7 +64,7 @@ export class BatchUploadScheduler {
                 if (this.globalOnSuccess) this.globalOnSuccess('ok');
                 if (this.parentOnUploadSuccess) this.parentOnUploadSuccess();
             } catch (error) {
-                this.messageApi?.error(`Batch upload failed: ${error}`);
+                this.messageApi?.error(i18n.t('upload.batchFail', { error }));
                 // Notify all items of failure
                 currentQueue.forEach(item => {
                     item.onError?.(error as Error);
@@ -72,3 +73,4 @@ export class BatchUploadScheduler {
         }
     }
 }
+

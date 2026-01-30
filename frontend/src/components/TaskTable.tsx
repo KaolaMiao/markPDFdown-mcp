@@ -24,11 +24,14 @@ interface TaskTableProps {
     pollingInterval?: number;
 }
 
+import { useTranslation } from 'react-i18next';
+
 export const TaskTable: React.FC<TaskTableProps> = ({ pollingInterval = 2000 }) => {
     const navigate = useNavigate();
     const [tasks, setTasks] = useState<Task[]>([]);
     const [loading, setLoading] = useState(false);
     const [total, setTotal] = useState(0);
+    const { t } = useTranslation();
 
     const fetchTasks = async (showLoading = false) => {
         if (showLoading) setLoading(true);
@@ -84,22 +87,20 @@ export const TaskTable: React.FC<TaskTableProps> = ({ pollingInterval = 2000 }) 
         };
     }, [pollingInterval]);
 
-    // ... (existing imports)
-
     const handleDelete = (taskId: string) => {
         Modal.confirm({
-            title: 'Confirm Delete',
-            content: 'Are you sure you want to delete this task? This action cannot be undone.',
-            okText: 'Delete',
+            title: t('task.deleteConfirm.title'),
+            content: t('task.deleteConfirm.content'),
+            okText: t('task.deleteConfirm.ok'),
             okType: 'danger',
-            cancelText: 'Cancel',
+            cancelText: t('task.deleteConfirm.cancel'),
             onOk: async () => {
                 try {
                     await ApiClient.deleteTask(taskId);
-                    message.success('Task deleted successfully');
+                    message.success(t('task.deleteConfirm.success'));
                     fetchTasks(false); // Refresh list
                 } catch (error) {
-                    message.error('Failed to delete task');
+                    message.error(t('task.deleteConfirm.fail'));
                     console.error(error);
                 }
             },
@@ -108,7 +109,7 @@ export const TaskTable: React.FC<TaskTableProps> = ({ pollingInterval = 2000 }) 
 
     const columns: ColumnsType<Task> = [
         {
-            title: 'File Name',
+            title: t('task.columns.fileName'),
             dataIndex: 'file_name',
             key: 'file_name',
             width: '30%',
@@ -120,7 +121,7 @@ export const TaskTable: React.FC<TaskTableProps> = ({ pollingInterval = 2000 }) 
             ),
         },
         {
-            title: 'Status',
+            title: t('task.columns.status'),
             dataIndex: 'status',
             key: 'status',
             width: '25%',
@@ -150,27 +151,27 @@ export const TaskTable: React.FC<TaskTableProps> = ({ pollingInterval = 2000 }) 
 
                 return (
                     <Tag color={color} icon={icon} className="px-3 py-1 text-sm rounded-full">
-                        {status?.toUpperCase()}
+                        {status ? t(`task.status.${status}`) : status}
                     </Tag>
                 );
             },
         },
         {
-            title: 'Created At',
+            title: t('task.columns.createdAt'),
             dataIndex: 'created_at',
             key: 'created_at',
             width: '20%',
             render: (text) => <span className="text-gray-500">{text ? new Date(text).toLocaleString() : '-'}</span>,
         },
         {
-            title: 'Action',
+            title: t('task.columns.action'),
             key: 'action',
             align: 'right',
             width: '25%',
             render: (_, record) => (
                 <Space size="small">
                     {(record.status === 'completed' || record.status === 'processing') && (
-                        <Tooltip title="Preview">
+                        <Tooltip title={t('task.action.view')}>
                             <Button
                                 type="text"
                                 icon={<EyeOutlined className="text-blue-600" />}
@@ -180,7 +181,7 @@ export const TaskTable: React.FC<TaskTableProps> = ({ pollingInterval = 2000 }) 
                     )}
 
                     {record.status === 'completed' && (
-                        <Tooltip title="Download Markdown">
+                        <Tooltip title={t('task.action.download')}>
                             <Button
                                 type="text"
                                 icon={<DownloadOutlined className="text-green-600" />}
@@ -199,14 +200,14 @@ export const TaskTable: React.FC<TaskTableProps> = ({ pollingInterval = 2000 }) 
                                         document.body.removeChild(link);
                                         window.URL.revokeObjectURL(url);
                                     } catch (error) {
-                                        message.error('Download failed');
+                                        message.error(t('task.downloadFail'));
                                     }
                                 }}
                             />
                         </Tooltip>
                     )}
 
-                    <Tooltip title="Delete Task">
+                    <Tooltip title={t('task.action.delete')}>
                         <Button
                             type="text"
                             danger
@@ -223,12 +224,12 @@ export const TaskTable: React.FC<TaskTableProps> = ({ pollingInterval = 2000 }) 
         <Card
             title={
                 <Space>
-                    <span>Processing Tasks</span>
+                    <span>{t('task.title')}</span>
                     <Tag color="blue">{total}</Tag>
                 </Space>
             }
             extra={
-                <Tooltip title="Refresh manually">
+                <Tooltip title={t('task.refresh')}>
                     <Button icon={<ReloadOutlined />} onClick={() => fetchTasks(true)} />
                 </Tooltip>
             }
