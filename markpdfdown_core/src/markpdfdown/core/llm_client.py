@@ -39,11 +39,10 @@ class LLMClient:
         self.model_name = model_name
 
         # Configure LiteLLM logging
-        litellm.set_verbose = True  # 启用详细日志用于调试
-
-        # 设置 litellm 日志级别
-        import logging
-        logging.getLogger("litellm").setLevel(logging.DEBUG)
+        # litellm.set_verbose = True  # Deprecated and noisy, removing by default
+        
+        # import logging
+        # logging.getLogger("litellm").setLevel(logging.INFO) # Set to INFO or WARNING to reduce noise
 
     def completion(
         self,

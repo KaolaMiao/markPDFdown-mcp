@@ -68,6 +68,12 @@ export const Preview: React.FC = () => {
   const [regenerating, setRegenerating] = useState(false);  // 重新生成状态
   const MAX_RETRIES = 10;  // 最大重试次数
 
+  // 使用 ref 保存 task 状态，以便在 callback 中访问最新状态而不触发重渲染或依赖更新
+  const taskRef = React.useRef<Task | null>(null);
+  useEffect(() => {
+    taskRef.current = task;
+  }, [task]);
+
   // 加载任务信息
   const fetchTask = useCallback(async () => {
     if (!taskId) return;
@@ -136,10 +142,12 @@ export const Preview: React.FC = () => {
         console.error('[Preview] Fetch page content error:', errorMessage);
 
         // 如果是 404 错误且任务状态是 processing/pending/completed，自动重试（带次数限制）
-        const taskStatus = task?.status;
+        const currentTask = taskRef.current;
+        const taskStatus = currentTask?.status;
+
         if (errorMessage.includes('404') &&
-            (taskStatus === 'processing' || taskStatus === 'pending' || taskStatus === 'completed') &&
-            retryCount < MAX_RETRIES) {
+          (taskStatus === 'processing' || taskStatus === 'pending' || taskStatus === 'completed') &&
+          retryCount < MAX_RETRIES) {
           console.log(`[Preview] Page ${page} not ready (404), auto-retrying in 5 seconds... (Retry ${retryCount + 1}/${MAX_RETRIES})`);
 
           setTimeout(() => {
@@ -158,7 +166,7 @@ export const Preview: React.FC = () => {
         setContentLoading(false);
       }
     },
-    [taskId, fetchTask, task?.status, message, currentPage, retryCount]
+    [taskId, fetchTask, message, currentPage, retryCount]
   );
 
   // 加载所有任务列表
@@ -182,11 +190,11 @@ export const Preview: React.FC = () => {
 
   // 页码变化时加载内容
   useEffect(() => {
-    if (task && task.total_pages && task.total_pages > 0) {
-      console.log(`[Preview] Page changed to ${currentPage}, loading content...`);
+    if (taskId) {
+      // console.log(`[Preview] Page changed to ${currentPage}, loading content...`);
       fetchPageContent(currentPage);
     }
-  }, [currentPage, task, fetchPageContent]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [currentPage, taskId, fetchPageContent]);
 
   // 下载 Markdown
   const handleDownload = async () => {
@@ -441,10 +449,10 @@ export const Preview: React.FC = () => {
                             item.status === 'completed'
                               ? 'success'
                               : item.status === 'processing'
-                              ? 'processing'
-                              : item.status === 'failed'
-                              ? 'error'
-                              : 'default'
+                                ? 'processing'
+                                : item.status === 'failed'
+                                  ? 'error'
+                                  : 'default'
                           }
                           style={{ margin: 0, fontSize: '11px' }}
                         >

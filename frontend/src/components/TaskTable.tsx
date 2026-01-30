@@ -1,19 +1,20 @@
 import React, { useEffect, useState } from 'react';
 import { Table, Tag, Button, Card, Space, Tooltip } from 'antd';
-import { DownloadOutlined, EyeOutlined, SyncOutlined, ReloadOutlined } from '@ant-design/icons';
+import { DownloadOutlined, EyeOutlined, ReloadOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { ApiClient } from '../services/api';
+import { TaskProgress } from './TaskProgress';
 
 // 定义类型内联，避免导入问题
 interface Task {
-  id: string;
-  task_id?: string;
-  file_name?: string;
-  status: 'pending' | 'processing' | 'completed' | 'failed';
-  created_at?: string;
-  result?: string;
-  error?: string;
-  total_pages?: number;
+    id: string;
+    task_id?: string;
+    file_name?: string;
+    status: 'pending' | 'processing' | 'completed' | 'failed';
+    created_at?: string;
+    result?: string;
+    error?: string;
+    total_pages?: number;
 }
 
 import type { ColumnsType } from 'antd/es/table';
@@ -44,7 +45,7 @@ export const TaskTable: React.FC<TaskTableProps> = ({ pollingInterval = 2000 }) 
     // Poll logic using adaptive setTimeout
     useEffect(() => {
         let isMounted = true;
-        let timeoutId: string | number | NodeJS.Timeout;
+        let timeoutId: any; // Fix type issue
 
         const poll = async () => {
             if (!isMounted) return;
@@ -63,8 +64,8 @@ export const TaskTable: React.FC<TaskTableProps> = ({ pollingInterval = 2000 }) 
             }
 
             // 2. Schedule next poll based on task status
-            // Active: 5s, Idle: 15s
-            const delay = hasActiveTasks ? 5000 : 15000;
+            // Active: use prop pollingInterval (default 2s), Idle: 15s
+            const delay = hasActiveTasks ? pollingInterval : 15000;
 
             if (isMounted) {
                 timeoutId = setTimeout(poll, delay);
@@ -73,51 +74,70 @@ export const TaskTable: React.FC<TaskTableProps> = ({ pollingInterval = 2000 }) 
 
         // Initial fetch and start polling
         fetchTasks(true).then(() => {
-            timeoutId = setTimeout(poll, 5000);
+            timeoutId = setTimeout(poll, pollingInterval);
         });
 
         return () => {
             isMounted = false;
             if (timeoutId) clearTimeout(timeoutId);
         };
-    }, []);
+    }, [pollingInterval]);
+
+    // ... (existing imports)
 
     const columns: ColumnsType<Task> = [
         {
             title: 'ID',
             dataIndex: 'id',
             key: 'id',
-            width: 100,
+            width: 80, // Slightly reduce width
             render: (text) => <span className="text-gray-500 font-mono text-xs">{text ? text.slice(0, 8) + '...' : '-'}</span>,
         },
+        // ... (File Name column)
         {
             title: 'File Name',
             dataIndex: 'file_name',
             key: 'file_name',
-            render: (text) => <span className="font-medium">{text || 'Unknown'}</span>,
+            width: 200, // Add width constraint
+            ellipsis: true, // Enable ellipsis
+            render: (text) => <span className="font-medium" title={text}>{text || 'Unknown'}</span>,
         },
+        // ... (Created At column)
         {
             title: 'Created At',
             dataIndex: 'created_at',
             key: 'created_at',
+            width: 150,
             render: (text) => text ? new Date(text).toLocaleString() : '-',
         },
         {
-            title: 'Status',
+            title: 'Status / Progress', // Rename column
             dataIndex: 'status',
             key: 'status',
-            render: (status) => {
+            width: 250, // Increase width for progress bar
+            render: (status, record) => {
+                if (status === 'processing') {
+                    // Use TaskProgress for real-time updates
+                    return (
+                        <TaskProgress
+                            taskId={record.id}
+                            initialStatus={status}
+                            onComplete={() => fetchTasks(false)} // Refresh list on complete
+                        />
+                    );
+                }
+
                 let color = 'default';
                 let icon = null;
                 if (status === 'completed') {
                     color = 'success';
-                } else if (status === 'processing') {
-                    color = 'processing';
-                    icon = <SyncOutlined spin />;
                 } else if (status === 'failed') {
                     color = 'error';
+                } else if (status === 'pending') {
+                    color = 'warning';
                 }
-                return <Tag color={color} icon={icon}>{status}</Tag>;
+
+                return <Tag color={color} icon={icon}>{status?.toUpperCase()}</Tag>;
             },
         },
         {
@@ -192,7 +212,7 @@ export const TaskTable: React.FC<TaskTableProps> = ({ pollingInterval = 2000 }) 
                     <Button icon={<ReloadOutlined />} onClick={() => fetchTasks(true)} />
                 </Tooltip>
             }
-            className="max-w-4xl mx-auto mt-8 shadow-md"
+            className="w-full mt-8 shadow-md"
         >
             <Table
                 dataSource={tasks}

@@ -73,7 +73,7 @@ class SmartWorker:
         Returns:
             (markdown_content, total_pages): Markdown 内容和总页数
         """
-        logger.info(f"Processing file (Streaming Mode with Per-Page Saving): {input_path}")
+        logger.info(f"Processing file (Streaming Mode): {input_path}")
 
         # 获取输出目录
         output_dir = os.path.dirname(input_path)
@@ -129,7 +129,7 @@ class SmartWorker:
                             f.write(content)
                         # 原子性重命名（OS 级别的原子操作）
                         os.replace(page_md_tmp, page_md_path)
-                        logger.info(f"Page {page_num} markdown saved to: {page_md_path}")
+                        logger.debug(f"Page {page_num} saved locally")
                     except Exception as e:
                         logger.error(f"Failed to save page {page_num} markdown: {e}")
 
@@ -154,7 +154,7 @@ class SmartWorker:
         try:
             for i, img_path in enumerate(image_gen):
                 total_pages = i + 1  # 更新总页数
-                logger.info(f"Page {i+1} rendered. Dispatching recognition task...")
+                logger.debug(f"Page {i+1} rendered, queuing...")
                 task = asyncio.create_task(_wrapped_convert(i, img_path))
                 tasks.append(task)
 
@@ -175,7 +175,7 @@ class SmartWorker:
             return ""
 
         # Wait for all tasks to complete
-        logger.info(f"All {len(tasks)} pages dispatched. Waiting for recognition results...")
+        logger.info(f"All {len(tasks)} pages dispatched. Waiting for results...")
         results = await asyncio.gather(*tasks)
 
         # Sort results by index to ensure strictly correct order
@@ -200,13 +200,13 @@ class SmartWorker:
                 page_marker = f"\n\n<!-- PAGE {page_num} -->\n\n"
                 markdown_parts.append(page_marker + page_content)
 
-                logger.info(f"Page {page_num} content loaded for merging")
+                logger.debug(f"Page {page_num} loaded for merge")
             except Exception as e:
                 logger.error(f"Failed to read page {page_num} markdown: {e}")
 
         # 合并所有页面
         final_markdown = "".join(markdown_parts)
-        logger.info(f"File processing complete. Total pages merged: {len(sorted_results)}")
+        logger.info(f"File processing complete. Total pages: {len(sorted_results)}")
 
         # 发送完成进度
         if self.progress_callback and task_id:
@@ -219,7 +219,7 @@ class SmartWorker:
             )
 
         logger.info(f"Processing completed. Total pages: {total_pages}")
-        logger.info(f"Token usage - Input: {total_input_tokens}, Output: {total_output_tokens}, Total: {total_input_tokens + total_output_tokens}")
+        logger.info(f"Token usage: Input={total_input_tokens}, Output={total_output_tokens}, Total={total_input_tokens + total_output_tokens}")
         return final_markdown, total_pages, total_input_tokens, total_output_tokens
 
     def _convert_one(self, image_path: str) -> 'CompletionResult':
@@ -229,8 +229,7 @@ class SmartWorker:
         Returns:
             CompletionResult with content and token usage
         """
-        logger.info(f"🔄 Starting conversion for: {image_path}")
-        logger.info(f"📝 Using model: {self.model_name}")
+        logger.debug(f"Starting conversion for: {image_path} with {self.model_name}")
 
         system_prompt = """
 You are a helpful assistant that can convert images to Markdown format. You are given an image, and you need to convert it to Markdown format. Please output the Markdown content only, without any other text.
@@ -239,10 +238,11 @@ You are a helpful assistant that can convert images to Markdown format. You are 
 Below is the image of one page of a document, please read the content in the image and transcribe it into plain Markdown format. Please note:
 1. Identify heading levels, text styles, formulas, and the format of table rows and columns
 2. Mathematical formulas should be transcribed using LaTeX syntax, ensuring consistency with the original
-3. Please output the Markdown content only, without any other text.
+3. Do NOT include any page headers or footers (e.g., page numbers, document titles, logos at the top/bottom of the page). Only transcribe the main body content.
+4. Please output the Markdown content only, without any other text.
 """
         try:
-            logger.info(f"📤 Calling LLM API with image: {image_path}")
+            logger.debug(f"Calling LLM API for: {image_path}")
             result = self.llm_client.completion(
                 user_message=user_prompt,
                 system_prompt=system_prompt,
@@ -251,12 +251,10 @@ Below is the image of one page of a document, please read the content in the ima
                 max_tokens=config.max_tokens,
                 retry_times=config.retry_times # Reusing config for now
             )
-            logger.info(f"✅ LLM API call successful for {image_path}, result length: {len(result.content) if result and result.content else 0}")
-            logger.info(f"📊 Tokens: Input={result.input_tokens}, Output={result.output_tokens}, Total={result.total_tokens}")
+            logger.info(f"Page converted successfully. Tokens: {result.total_tokens}")
             return result
         except Exception as e:
-            logger.error(f"❌ Error converting {image_path}: {e}")
-            logger.error(f"❌ Exception type: {type(e).__name__}")
+            logger.error(f"Error converting {image_path}: {e}")
             # 返回空的 CompletionResult 而不是空字符串
             from markpdfdown.core.llm_client import CompletionResult
             return CompletionResult(content="")

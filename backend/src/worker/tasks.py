@@ -24,13 +24,8 @@ async def progress_callback(task_id: str, current_page: int, total_pages: int, p
 
 
 async def run_async_process(task_id: str, input_path: str, model_name: str, concurrency: int = 2, api_key: str = None, base_url: str = None):
-    logger.info(f"🚀 Starting async process for task {task_id}")
-    logger.info(f"📋 Task parameters:")
-    logger.info(f"   - Input path: {input_path}")
-    logger.info(f"   - Model: {model_name}")
-    logger.info(f"   - Concurrency: {concurrency}")
-    logger.info(f"   - API Key: {'✅ Set' if api_key else '❌ NOT SET'}")
-    logger.info(f"   - Base URL: {base_url or 'Not set'}")
+    logger.info(f"Starting async process for task {task_id}")
+    logger.info(f"Task parameters: Input path: {input_path}, Model: {model_name}, Concurrency: {concurrency}")
 
     from datetime import datetime
 
@@ -44,11 +39,11 @@ async def run_async_process(task_id: str, input_path: str, model_name: str, conc
         task.status = TaskStatus.PROCESSING
         task.started_at = datetime.utcnow()
         await session.commit()
-        logger.info(f"✅ Task {task_id} status updated to PROCESSING at {task.started_at}")
+        logger.info(f"Task {task_id} status updated to PROCESSING")
 
     try:
         # 2. Run Worker with progress callback
-        logger.info(f"🔧 Initializing SmartWorker...")
+        logger.info(f"SmartWorker initialized")
         worker = SmartWorker(
             model_name=model_name,
             concurrency=concurrency,
@@ -56,11 +51,10 @@ async def run_async_process(task_id: str, input_path: str, model_name: str, conc
             base_url=base_url,
             progress_callback=progress_callback
         )
-        logger.info(f"✅ SmartWorker initialized, starting file processing...")
+        logger.info(f"Starting file processing...")
         markdown_content, total_pages, input_tokens, output_tokens = await worker.process_file(input_path, task_id=task_id)
 
-        logger.info(f"✅ Processing completed. Total pages: {total_pages}")
-        logger.info(f"📊 Token usage - Input: {input_tokens}, Output: {output_tokens}, Total: {input_tokens + output_tokens}")
+        logger.info(f"Processing completed. Total pages: {total_pages}. Tokens: Input={input_tokens}, Output={output_tokens}, Total={input_tokens + output_tokens}")
 
         # 3. Save Result & Update COMPLETED
         # 输出文件使用原始 PDF 文件名，扩展名改为 .md
@@ -88,8 +82,7 @@ async def run_async_process(task_id: str, input_path: str, model_name: str, conc
                 task.total_tokens = input_tokens + output_tokens
                 await session.commit()
 
-        logger.info(f"Task {task_id} completed successfully with {total_pages} pages")
-        logger.info(f"⏱️  Duration: {task.completed_at - task.started_at}")
+        logger.info(f"Task {task_id} completed successfully. Duration: {task.completed_at - task.started_at}")
 
     except Exception as e:
         logger.error(f"Task {task_id} failed: {e}")
@@ -121,7 +114,7 @@ async def regenerate_single_page(
         api_key: API密钥
         base_url: API基础URL
     """
-    logger.info(f"🔄 Regenerating page {page_num} for task {task_id}")
+    logger.info(f"Regenerating page {page_num} for task {task_id}")
 
     import os
     from pathlib import Path
@@ -155,7 +148,6 @@ async def regenerate_single_page(
         # 统计 token 使用
         if hasattr(result, 'total_tokens'):
             total_tokens_used += result.total_tokens
-            logger.info(f"📊 Page {page_num} used {result.total_tokens} tokens")
 
         # 2. 保存单页 markdown 文件（使用原子操作）
         page_md_path = task_dir / f"page_{page_num:04d}.md"
@@ -168,7 +160,8 @@ async def regenerate_single_page(
         # 原子性重命名（OS 级别的原子操作）
         os.replace(page_md_tmp, page_md_path)
 
-        logger.info(f"✅ Page {page_num} markdown saved to {page_md_path}, now merging all pages...")
+        os.replace(page_md_tmp, page_md_path)
+        logger.info(f"Page {page_num} markdown saved to {page_md_path}")
 
         # 3. 查找所有页面文件并按顺序合并（使用严格的模式匹配）
         # 使用严格的4位数字模式匹配，避免匹配到用户上传的其他文件
@@ -197,9 +190,8 @@ async def regenerate_single_page(
             except Exception as e:
                 logger.error(f"Failed to read {page_file}: {e}")
 
-        # 按页码排序
+        # Merging pages in order
         merged_parts.sort(key=lambda x: x[0])
-        logger.info(f"Merging pages in order: {[p[0] for p in merged_parts]}")
 
         # 5. 构建最终 markdown（添加页码分隔符）
         final_markdown = ""
@@ -222,12 +214,11 @@ async def regenerate_single_page(
                 f.write(final_markdown)
             os.replace(output_tmp, output_file)
 
-            logger.info(f"✅ Merged markdown saved to: {output_file}")
-            logger.info(f"📊 Total size: {len(final_markdown)} characters")
+            logger.info(f"Merged markdown saved to: {output_file}")
         else:
-            logger.warning(f"⚠️  No PDF file found in {task_dir}, skipping merge")
+            logger.warning(f"No PDF file found in {task_dir}, skipping merge")
 
-        logger.info(f"✅ Page {page_num} regeneration and merge completed")
+        logger.info(f"Page {page_num} regeneration and merge completed")
 
         # 7. 更新数据库中的 token 统计
         if total_tokens_used > 0:
@@ -243,15 +234,13 @@ async def regenerate_single_page(
                         task.output_tokens = (task.output_tokens or 0) + (result.output_tokens or 0)
                         task.total_tokens = (task.total_tokens or 0) + total_tokens_used
                         await session.commit()
-                        logger.info(f"📊 Updated tokens for task {task_id}: "
-                                  f"Input={task.input_tokens}, Output={task.output_tokens}, "
-                                  f"Total={task.total_tokens}")
+                        logger.info(f"Updated tokens for task {task_id}")
             except Exception as db_error:
                 logger.error(f"❌ Failed to update database for task {task_id}: {db_error}")
                 # 不抛出异常，因为文件已经保存成功
 
     except Exception as e:
-        logger.error(f"❌ Failed to regenerate page {page_num}: {e}")
+        logger.error(f"Failed to regenerate page {page_num}: {e}")
         raise e
 
 @celery_app.task(bind=True)
