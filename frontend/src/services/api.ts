@@ -64,9 +64,16 @@ export class ApiClient {
     });
   }
 
+
   static async getTask(taskId: string): Promise<Task> {
     return this.request(`/tasks/${taskId}`, {
       method: 'GET',
+    });
+  }
+
+  static async deleteTask(taskId: string): Promise<void> {
+    return this.request(`/tasks/${taskId}`, {
+      method: 'DELETE',
     });
   }
 

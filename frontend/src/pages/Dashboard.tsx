@@ -35,19 +35,23 @@ export const Dashboard: React.FC = () => {
                 </Space>
             </Header>
 
-            <Content className="p-8 w-full">
-                <div className="space-y-8">
-                    <section className="text-center mb-12">
-                        <Title level={2}>MarkPDFdown 智能转换系统</Title>
+            <Content className="p-8 w-full flex justify-center">
+                <div className="w-full max-w-6xl space-y-8">
+                    <section className="text-center mb-8">
+                        <Title level={2} style={{ marginBottom: '0.5rem' }}>MarkPDFdown 智能转换系统</Title>
                         <Text type="secondary" className="text-lg">
                             使用说明：请上传 PDF 文件，系统将自动调用多模态大模型（支持 GPT-4o, Claude 3.5, Gemini 1.5）进行高精度 Markdown 转换。
                         </Text>
                     </section>
 
-                    <UploadZone onUploadSuccess={() => { /* TaskTable polls automatically */ }} />
+                    {/* Upload Zone - Full width in container */}
+                    <div className="w-full">
+                        <UploadZone onUploadSuccess={() => { /* TaskTable polls automatically */ }} />
+                    </div>
 
                     <TaskTable />
                 </div>
+
             </Content>
 
             <Footer className="text-center text-gray-400">

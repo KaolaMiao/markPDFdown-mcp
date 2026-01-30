@@ -236,6 +236,36 @@ async def download_task(task_id: str, db: AsyncSession = Depends(get_db)):
         download_name = f"{task_id}.md"
     return FileResponse(task.result_path, filename=download_name)
 
+@router.delete("/tasks/{task_id}", status_code=204)
+async def delete_task(task_id: str, db: AsyncSession = Depends(get_db)):
+    """
+    删除任务，包括数据库记录和服务器上的文件
+    """
+    # 1. 查找任务
+    task = await db.get(Task, task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+        
+    # 2. 删除文件系统中的任务目录
+    task_dir = os.path.join(UPLOAD_DIR, task_id)
+    if os.path.exists(task_dir):
+        try:
+            shutil.rmtree(task_dir)
+        except Exception as e:
+            print(f"Failed to delete directory {task_dir}: {e}")
+            # 继续删除数据库记录，不阻拦
+            
+    # 3. 删除数据库记录
+    try:
+        await db.delete(task)
+        await db.commit()
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to delete task from DB: {e}")
+        
+    return
+
+
 # Settings Endpoints - 使用持久化的 settings 模块
 from .settings import Settings, current_settings, save_settings_to_env, load_settings_from_env
 from fastapi.responses import StreamingResponse

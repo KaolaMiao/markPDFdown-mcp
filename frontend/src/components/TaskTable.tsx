@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { Table, Tag, Button, Card, Space, Tooltip } from 'antd';
-import { DownloadOutlined, EyeOutlined, ReloadOutlined } from '@ant-design/icons';
+import { DownloadOutlined, EyeOutlined, ReloadOutlined, DeleteOutlined, FilePdfOutlined, CheckCircleOutlined, CloseCircleOutlined, SyncOutlined, ClockCircleOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { ApiClient } from '../services/api';
 import { TaskProgress } from './TaskProgress';
+import { message, Modal } from 'antd';
 
 // 定义类型内联，避免导入问题
 interface Task {
@@ -85,115 +86,134 @@ export const TaskTable: React.FC<TaskTableProps> = ({ pollingInterval = 2000 }) 
 
     // ... (existing imports)
 
+    const handleDelete = (taskId: string) => {
+        Modal.confirm({
+            title: 'Confirm Delete',
+            content: 'Are you sure you want to delete this task? This action cannot be undone.',
+            okText: 'Delete',
+            okType: 'danger',
+            cancelText: 'Cancel',
+            onOk: async () => {
+                try {
+                    await ApiClient.deleteTask(taskId);
+                    message.success('Task deleted successfully');
+                    fetchTasks(false); // Refresh list
+                } catch (error) {
+                    message.error('Failed to delete task');
+                    console.error(error);
+                }
+            },
+        });
+    };
+
     const columns: ColumnsType<Task> = [
-        {
-            title: 'ID',
-            dataIndex: 'id',
-            key: 'id',
-            width: 80, // Slightly reduce width
-            render: (text) => <span className="text-gray-500 font-mono text-xs">{text ? text.slice(0, 8) + '...' : '-'}</span>,
-        },
-        // ... (File Name column)
         {
             title: 'File Name',
             dataIndex: 'file_name',
             key: 'file_name',
-            width: 200, // Add width constraint
-            ellipsis: true, // Enable ellipsis
-            render: (text) => <span className="font-medium" title={text}>{text || 'Unknown'}</span>,
-        },
-        // ... (Created At column)
-        {
-            title: 'Created At',
-            dataIndex: 'created_at',
-            key: 'created_at',
-            width: 150,
-            render: (text) => text ? new Date(text).toLocaleString() : '-',
+            width: '30%',
+            render: (text) => (
+                <Space>
+                    <FilePdfOutlined className="text-red-500 text-lg" />
+                    <span className="font-medium text-gray-700" title={text}>{text || 'Unknown'}</span>
+                </Space>
+            ),
         },
         {
-            title: 'Status / Progress', // Rename column
+            title: 'Status',
             dataIndex: 'status',
             key: 'status',
-            width: 250, // Increase width for progress bar
+            width: '25%',
             render: (status, record) => {
                 if (status === 'processing') {
-                    // Use TaskProgress for real-time updates
                     return (
                         <TaskProgress
                             taskId={record.id}
                             initialStatus={status}
-                            onComplete={() => fetchTasks(false)} // Refresh list on complete
+                            onComplete={() => fetchTasks(false)}
                         />
                     );
                 }
 
                 let color = 'default';
-                let icon = null;
+                let icon = <ClockCircleOutlined />;
                 if (status === 'completed') {
                     color = 'success';
+                    icon = <CheckCircleOutlined />;
                 } else if (status === 'failed') {
                     color = 'error';
+                    icon = <CloseCircleOutlined />;
                 } else if (status === 'pending') {
                     color = 'warning';
+                    icon = <SyncOutlined spin />;
                 }
 
-                return <Tag color={color} icon={icon}>{status?.toUpperCase()}</Tag>;
+                return (
+                    <Tag color={color} icon={icon} className="px-3 py-1 text-sm rounded-full">
+                        {status?.toUpperCase()}
+                    </Tag>
+                );
             },
+        },
+        {
+            title: 'Created At',
+            dataIndex: 'created_at',
+            key: 'created_at',
+            width: '20%',
+            render: (text) => <span className="text-gray-500">{text ? new Date(text).toLocaleString() : '-'}</span>,
         },
         {
             title: 'Action',
             key: 'action',
+            align: 'right',
+            width: '25%',
             render: (_, record) => (
-                <Space size="middle">
-                    {/* 查看按钮 - 已完成或正在处理的任务都可以查看 */}
+                <Space size="small">
                     {(record.status === 'completed' || record.status === 'processing') && (
-                        <Button
-                            type="link"
-                            icon={<EyeOutlined />}
-                            onClick={() => navigate(`/preview/${record.id}`)}
-                        >
-                            查看
-                        </Button>
+                        <Tooltip title="Preview">
+                            <Button
+                                type="text"
+                                icon={<EyeOutlined className="text-blue-600" />}
+                                onClick={() => navigate(`/preview/${record.id}`)}
+                            />
+                        </Tooltip>
                     )}
-                    {/* 下载按钮 - 只有已完成的任务可以下载 */}
+
                     {record.status === 'completed' && (
-                        <Button
-                            type="link"
-                            icon={<DownloadOutlined />}
-                            onClick={async () => {
-                                try {
-                                    // 1. Fetch Blob
-                                    const blob = await ApiClient.downloadFile(record.id || record.task_id || '');
-
-                                    // 2. Create Object URL
-                                    const url = window.URL.createObjectURL(blob);
-
-                                    // 3. Trigger Download with Correct Filename
-                                    const link = document.createElement('a');
-                                    link.href = url;
-
-                                    // 优先使用 file_name (.pdf -> .md)，否则使用 id.md
-                                    const fileName = record.file_name
-                                        ? record.file_name.replace(/\.pdf$/i, '.md')
-                                        : `${record.id}.md`;
-
-                                    link.download = fileName;
-                                    document.body.appendChild(link);
-                                    link.click();
-
-                                    // 4. Cleanup
-                                    document.body.removeChild(link);
-                                    window.URL.revokeObjectURL(url);
-                                } catch (error) {
-                                    console.error('Download failed:', error);
-                                    // Fallback or alert user
-                                    alert('下载失败，请稍后重试');
-                                }
-                            }}
-                        >
-                            下载
-                        </Button>
+                        <Tooltip title="Download Markdown">
+                            <Button
+                                type="text"
+                                icon={<DownloadOutlined className="text-green-600" />}
+                                onClick={async () => {
+                                    try {
+                                        const blob = await ApiClient.downloadFile(record.id || record.task_id || '');
+                                        const url = window.URL.createObjectURL(blob);
+                                        const link = document.createElement('a');
+                                        link.href = url;
+                                        const fileName = record.file_name
+                                            ? record.file_name.replace(/\.pdf$/i, '.md')
+                                            : `${record.id}.md`;
+                                        link.download = fileName;
+                                        document.body.appendChild(link);
+                                        link.click();
+                                        document.body.removeChild(link);
+                                        window.URL.revokeObjectURL(url);
+                                    } catch (error) {
+                                        message.error('Download failed');
+                                    }
+                                }}
+                            />
+                        </Tooltip>
                     )}
+
+                    <Tooltip title="Delete Task">
+                        <Button
+                            type="text"
+                            danger
+                            icon={<DeleteOutlined />}
+                            onClick={() => handleDelete(record.id)}
+                        />
+                    </Tooltip>
                 </Space>
             ),
         },
@@ -212,7 +232,7 @@ export const TaskTable: React.FC<TaskTableProps> = ({ pollingInterval = 2000 }) 
                     <Button icon={<ReloadOutlined />} onClick={() => fetchTasks(true)} />
                 </Tooltip>
             }
-            className="w-full mt-8 shadow-md"
+            className="w-full shadow-lg rounded-xl overflow-hidden border-0"
         >
             <Table
                 dataSource={tasks}
