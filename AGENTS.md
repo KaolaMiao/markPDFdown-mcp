@@ -356,12 +356,10 @@ uv run pytest --cov=src
 
 #### 🚧 开发中功能
 
-- 🚧 **功能 1.4**: 前端进度条 UI 组件
 - 🚧 **功能 2.2**: 同步滚动优化
 
 #### 📋 计划中功能
 
-- 📋 **功能 3**: 批量处理
 - 📋 **功能 5**: 页码范围选择
 - 📋 **功能 6**: 多语言支持 (i18n)
 
@@ -776,9 +774,133 @@ export function PageNavigation({ currentPage, totalPages, onPageChange }) {
 
 ---
 
-### 功能 3: 批量处理
+### 功能 3: 批量处理 ✅ (已完成)
 
-**目标**: 支持一次上传多个 PDF 文件，并发转换
+**目标**: 支持一次上传多个 PDF 文件，并发转换，并提供任务管理功能
+
+#### 实现内容
+
+**任务 3.1: 批量上传端点** ✅
+- `POST /api/v1/upload/batch` - 批量上传多个 PDF 文件
+- 支持最多 10 个文件同时上传
+- 文件大小限制：每个文件最大 50MB
+- 防止 DOS 攻击的安全验证
+
+**文件位置**:
+- `backend/src/api/routes.py:155-218` - 批量上传端点
+- `backend/src/api/routes.py:20-22` - 安全限制常量
+
+**任务 3.2: 并发控制** ✅
+- 使用全局 `asyncio.Semaphore` 控制并发任务数
+- 可配置的并发限制（通过 `MAX_CONCURRENT_TASKS` 环境变量）
+- 自动清理旧任务机制
+
+**文件位置**:
+- `backend/src/worker/tasks.py:27-38` - 全局信号量定义
+- `backend/src/worker/tasks.py:47-72` - 并发处理逻辑
+
+**任务 3.3: 删除任务功能** ✅
+- `DELETE /api/v1/tasks/{task_id}` - 删除指定任务
+- 状态检查：防止删除正在处理的任务（HTTP 409）
+- 级联删除：数据库记录和文件系统目录
+- 完善的错误处理
+
+**文件位置**:
+- `backend/src/api/routes.py:247-275` - 删除端点
+
+**任务 3.4: 前端批量上传** ✅
+- `BatchUploadScheduler` 类：智能批量上传调度器
+- 100ms 防抖优化：自动合并连续上传
+- 单文件/批量模式自动切换
+- 拖拽上传支持
+
+**文件位置**:
+- `frontend/src/components/UploadZone.tsx:12-79` - 批量上传调度器
+
+**任务 3.5: 前端任务管理** ✅
+- 任务列表显示每个文件的状态
+- 删除确认对话框（防止误操作）
+- 实时进度更新（SSE 集成）
+- 视觉状态指示器（图标 + Tooltip）
+- 改进的表格布局和样式
+
+**文件位置**:
+- `frontend/src/components/TaskTable.tsx` - 任务表格组件
+- `frontend/src/services/api.ts:49-58` - 批量和删除 API 方法
+
+**任务 3.6: API 客户端扩展** ✅
+- `ApiClient.uploadFiles()` - 批量上传方法
+- `ApiClient.deleteTask()` - 删除任务方法
+- 完整的 TypeScript 类型定义
+
+**文件位置**:
+- `frontend/src/services/api.ts` - API 客户端
+
+#### 关键特性
+
+**安全性**:
+- ✅ 文件数量限制（最多 10 个）
+- ✅ 文件大小限制（每个 50MB）
+- ✅ 防止删除正在处理的任务
+- ✅ 文件类型验证（仅 PDF）
+
+**用户体验**:
+- ✅ 智能防抖（100ms）
+- ✅ 单文件/批量模式自动切换
+- ✅ 删除确认对话框
+- ✅ 实时进度显示
+- ✅ 视觉状态指示器
+
+**性能优化**:
+- ✅ 批量上传减少 HTTP 开销
+- ✅ 并发处理提高吞吐量
+- ✅ 信号量控制资源使用
+- ✅ 自动清理旧任务
+
+#### 完成条件
+
+- [x] 支持一次选择多个 PDF（最多 10 个）
+- [x] 并发处理提高效率（可配置并发数）
+- [x] 每个任务状态独立显示
+- [x] 删除任务功能（带状态检查）
+- [x] 错误隔离（单个失败不影响其他）
+- [x] 安全限制（文件数量和大小）
+- [x] 代码审查通过（评分 9/10）
+
+#### 代码审查结果
+
+**最终评分**: 9/10 (优秀)
+
+**关键修复**:
+1. 防止删除正在处理的任务（HTTP 409 Conflict）
+2. 添加批量上传安全限制（文件数量和大小）
+3. 改进错误日志记录（使用 logger 而非 print）
+
+**测试验证**:
+```bash
+# 测试批量上传
+curl -X POST http://localhost:8000/api/v1/upload/batch \
+  -F "files=@test1.pdf" \
+  -F "files=@test2.pdf"
+
+# 测试删除任务（应返回 409 如果正在处理）
+curl -X DELETE http://localhost:8000/api/v1/tasks/{task_id}
+
+# 测试文件数量限制（应返回 400）
+curl -X POST http://localhost:8000/api/v1/upload/batch \
+  -F "files=@test1.pdf" \
+  -F "files=@test2.pdf" \
+  ... (11 个文件)
+```
+
+#### 参考实现
+无参考实现，全新开发。结合了 FastAPI 批量上传最佳实践和 React Ant Design 组件库模式。
+
+---
+
+## 功能 4: 多提供商支持 ✅ (部分完成)
+
+**目标**: 支持切换不同的 LLM 提供商（OpenAI、Claude、Ollama）
 
 #### 技术方案
 
