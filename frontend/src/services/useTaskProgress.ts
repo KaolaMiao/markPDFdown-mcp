@@ -33,14 +33,30 @@ export function useTaskProgress(taskId: string, initialStatus?: string): UseTask
 
     // 使用 ref 来保存 EventSource 实例，防止因闭包问题导致无法正确清理
     const eventSourceRef = useRef<EventSource | null>(null);
+    const retryCountRef = useRef<number>(0);
+    const statusRef = useRef<string>(status);
+    const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    // 保持 statusRef 同步，用于在闭包中获取最新状态
+    useEffect(() => {
+        statusRef.current = status;
+    }, [status]);
 
     useEffect(() => {
-        // 如果没有 taskId 或任务已经完成/失败，则不需要建立连接
-        // 注意：如果想要查看历史完成任务的最后进度，可能需要调整逻辑。
-        // 这里假设主要是为了监控 "进行中" 的任务。
-        if (!taskId || status === 'completed' || status === 'failed') {
+        // 如果没有 taskId，则不需要建立连接
+        if (!taskId) {
             return;
         }
+
+        // 如果任务已经完成/失败，则不需要建立连接
+        // 注意：如果想要查看历史完成任务的最后进度，可能需要调整逻辑。
+        // 这里假设主要是为了监控 "进行中" 的任务。
+        if (status === 'completed' || status === 'failed') {
+            return;
+        }
+
+        // 重置重试计数器
+        retryCountRef.current = 0;
 
         // 定义连接函数
         const connectSSE = () => {
@@ -49,18 +65,19 @@ export function useTaskProgress(taskId: string, initialStatus?: string): UseTask
                 eventSourceRef.current.close();
             }
 
-            // 所有的 API 请求都应该基于配置的基础 URL，这里假设后端运行在 8000 端口
-            // 在生产环境中，应该从环境变量或配置文件获取
-            const API_BASE_URL = 'http://localhost:8000';
-            const url = `${API_BASE_URL}/api/v1/events?task_id=${taskId}`;
+            // 使用相对路径以支持反向代理（与 ApiClient.baseUrl 保持一致）
+            // 在生产环境中，nginx 会将 /api/v1 代理到后端服务
+            const url = `/api/v1/events?task_id=${taskId}`;
 
             console.log(`[SSE] Connecting to ${url}`);
             const eventSource = new EventSource(url);
             eventSourceRef.current = eventSource;
 
             eventSource.onopen = () => {
-                console.log(`[SSE] Cconnection opened for task ${taskId}`);
+                console.log(`[SSE] Connection opened for task ${taskId}`);
                 setIsConnected(true);
+                // 重置重试计数器
+                retryCountRef.current = 0;
             };
 
             eventSource.onmessage = (event) => {
@@ -97,10 +114,27 @@ export function useTaskProgress(taskId: string, initialStatus?: string): UseTask
                 setIsConnected(false);
                 eventSourceRef.current = null;
 
-                // 简单的重连逻辑：如果是处理中，3秒后重试
-                if (status === 'processing') {
-                    // 暂时不自动重连，避免死循环，让用户手动刷新或依赖轮询兜底
-                    // 如果需要自动重连，可以使用 setTimeout 再次调用 connectSSE
+                // 指数退避重连逻辑：如果仍在处理中，尝试重连
+                const currentStatus = statusRef.current;
+                if (currentStatus === 'processing' || currentStatus === 'pending') {
+                    const retryCount = retryCountRef.current;
+                    // 计算退避时间：1s, 2s, 4s, 8s, 最大 30s
+                    const delay = Math.min(1000 * Math.pow(2, retryCount), 30000);
+                    console.log(`[SSE] Reconnecting in ${delay}ms (attempt ${retryCount + 1})`);
+
+                    // 清除之前的重连定时器
+                    if (reconnectTimeoutRef.current) {
+                        clearTimeout(reconnectTimeoutRef.current);
+                    }
+
+                    reconnectTimeoutRef.current = setTimeout(() => {
+                        // 再次检查状态，避免在任务完成后重连
+                        if (statusRef.current === 'processing' || statusRef.current === 'pending') {
+                            retryCountRef.current = retryCount + 1;
+                            reconnectTimeoutRef.current = null;
+                            connectSSE();
+                        }
+                    }, delay);
                 }
             };
         };
@@ -109,6 +143,13 @@ export function useTaskProgress(taskId: string, initialStatus?: string): UseTask
 
         // 清理函数
         return () => {
+            // 清除重连定时器
+            if (reconnectTimeoutRef.current) {
+                clearTimeout(reconnectTimeoutRef.current);
+                reconnectTimeoutRef.current = null;
+            }
+
+            // 关闭 SSE 连接
             if (eventSourceRef.current) {
                 console.log(`[SSE] Cleaning up connection for task ${taskId}`);
                 eventSourceRef.current.close();
@@ -116,8 +157,9 @@ export function useTaskProgress(taskId: string, initialStatus?: string): UseTask
                 setIsConnected(false);
             }
         };
-    }, [taskId]); // 移除 status 依赖，防止状态更新导致频繁重连。只在 taskId 变化时重连。
-    // 但是我们需要在 status 变为 completed 时停止，这在 onmessage 内部处理了。
+    }, [taskId]); // eslint-disable-line react-hooks/exhaustive-deps
+    // 移除 status 依赖，防止状态更新导致频繁重连。只在 taskId 变化时重连。
+    // status 的变化通过 onmessage 内部处理，并使用 statusRef 获取最新值
 
     return {
         progress,

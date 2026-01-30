@@ -159,8 +159,6 @@ async def regenerate_single_page(
 
         # 原子性重命名（OS 级别的原子操作）
         os.replace(page_md_tmp, page_md_path)
-
-        os.replace(page_md_tmp, page_md_path)
         logger.info(f"Page {page_num} markdown saved to {page_md_path}")
 
         # 3. 查找所有页面文件并按顺序合并（使用严格的模式匹配）

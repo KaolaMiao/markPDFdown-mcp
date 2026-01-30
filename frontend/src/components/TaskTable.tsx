@@ -45,7 +45,7 @@ export const TaskTable: React.FC<TaskTableProps> = ({ pollingInterval = 2000 }) 
     // Poll logic using adaptive setTimeout
     useEffect(() => {
         let isMounted = true;
-        let timeoutId: any; // Fix type issue
+        let timeoutId: ReturnType<typeof setTimeout> | undefined;
 
         const poll = async () => {
             if (!isMounted) return;
