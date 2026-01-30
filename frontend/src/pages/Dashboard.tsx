@@ -1,3 +1,9 @@
+import React, { useState } from 'react';
+import { Layout, Button, Typography, Space, Drawer } from 'antd';
+import { SettingOutlined, GithubOutlined } from '@ant-design/icons';
+import { SettingsForm } from '../components/SettingsForm';
+import { UploadZone } from '../components/UploadZone';
+import { TaskTable } from '../components/TaskTable';
 import { LanguageSwitcher } from '../components/LanguageSwitcher';
 import { useTranslation } from 'react-i18next';
 

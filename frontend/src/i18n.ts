@@ -23,7 +23,7 @@ i18n
             }
         },
         fallbackLng: 'zh', // 默认回退到中文
-        debug: true,
+        debug: import.meta.env.DEV, // 仅在开发环境启用调试
 
         interpolation: {
             escapeValue: false, // not needed for react as it escapes by default
