@@ -74,7 +74,6 @@ download/
 
 # 开发文档（不希望公开的内部文档）
 project_master_plan.md
-AGENTS.md
 CONTRIBUTING.md
 
 # 测试覆盖率
