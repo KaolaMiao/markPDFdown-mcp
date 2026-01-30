@@ -44,5 +44,41 @@
             "fail": "删除任务失败"
         },
         "downloadFail": "下载失败，请稍后重试"
+    },
+    "settings": {
+        "title": "LLM 配置",
+        "provider": "模型提供商",
+        "apiKey": "API Key",
+        "apiKeyRequired": "请输入 API Key",
+        "baseUrl": "Base URL (可选)",
+        "model": "模型名称",
+        "concurrency": "并发限制",
+        "concurrencyTooltip": "同时处理的页面数量。建议值：2-10（取决于 API 限流），最高可设 50",
+        "save": "保存配置",
+        "loadFail": "加载配置失败",
+        "saveSuccess": "配置已保存",
+        "saveFail": "保存配置失败"
+    },
+    "preview": {
+        "loadingTask": "正在加载任务信息...",
+        "loadingContent": "正在加载内容...",
+        "back": "返回列表",
+        "download": "下载",
+        "regenerate": "重新生成",
+        "regenerateTooltip": "重新识别当前页面（保持原有格式，多页自动合并）",
+        "refresh": "刷新",
+        "refreshTooltip": "刷新当前页面内容",
+        "tasks": "任务列表",
+        "contentNotAvailable": "内容暂不可用。页面可能仍在处理中。",
+        "page": "页",
+        "pages": "页",
+        "pagination": "第 {{start}}-{{end}} 页 / 共 {{total}} 页",
+        "downloadSuccess": "下载成功",
+        "downloadFail": "下载失败",
+        "regenerating": "第 {{page}} 页正在重新生成...",
+        "regenerateSuccess": "第 {{page}} 页重新生成完成",
+        "regenerateFail": "重新生成失败",
+        "fetchTaskFail": "获取任务失败",
+        "fetchContentFail": "获取页面内容失败"
     }
 }

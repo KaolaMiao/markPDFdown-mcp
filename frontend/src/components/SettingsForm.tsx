@@ -1,14 +1,15 @@
 import React, { useEffect } from 'react';
 import { Form, Input, Select, InputNumber, Button, Card, App } from 'antd';
 import { ApiClient } from '../services/api';
+import { useTranslation } from 'react-i18next';
 
 // 定义类型内联，避免导入问题
 interface Settings {
-  provider: string;
-  apiKey: string;
-  baseUrl?: string;
-  model: string;
-  concurrency: number;
+    provider: string;
+    apiKey: string;
+    baseUrl?: string;
+    model: string;
+    concurrency: number;
 }
 
 export const SettingsForm: React.FC = () => {
@@ -16,6 +17,7 @@ export const SettingsForm: React.FC = () => {
     const [form] = Form.useForm();
     const [loading, setLoading] = React.useState(false);
     const [initialLoading, setInitialLoading] = React.useState(true);
+    const { t } = useTranslation();
 
     useEffect(() => {
         const loadSettings = async () => {
@@ -24,28 +26,28 @@ export const SettingsForm: React.FC = () => {
                 form.setFieldsValue(settings);
             } catch (error) {
                 console.error(error);
-                message.error('Failed to load settings');
+                message.error(t('settings.loadFail'));
             } finally {
                 setInitialLoading(false);
             }
         };
         loadSettings();
-    }, [form, message]);
+    }, [form, message, t]);
 
     const onFinish = async (values: Settings) => {
         setLoading(true);
         try {
             await ApiClient.updateSettings(values);
-            message.success('Settings saved');
+            message.success(t('settings.saveSuccess'));
         } catch (error) {
-            message.error('Failed to save settings');
+            message.error(t('settings.saveFail'));
         } finally {
             setLoading(false);
         }
     };
 
     return (
-        <Card title="LLM Configuration" className="max-w-2xl mx-auto mt-8 shadow-md" loading={initialLoading}>
+        <Card title={t('settings.title')} className="max-w-2xl mx-auto mt-8 shadow-md" loading={initialLoading}>
             <Form
                 form={form}
                 layout="vertical"
@@ -56,7 +58,7 @@ export const SettingsForm: React.FC = () => {
             >
                 <Form.Item
                     name="provider"
-                    label="Provider"
+                    label={t('settings.provider')}
                     rules={[{ required: true }]}
                 >
                     <Select>
@@ -69,22 +71,22 @@ export const SettingsForm: React.FC = () => {
 
                 <Form.Item
                     name="apiKey"
-                    label="API Key"
-                    rules={[{ required: true, message: 'API Key is required' }]}
+                    label={t('settings.apiKey')}
+                    rules={[{ required: true, message: t('settings.apiKeyRequired') }]}
                 >
                     <Input.Password placeholder="sk-..." />
                 </Form.Item>
 
                 <Form.Item
                     name="baseUrl"
-                    label="Base URL (Optional)"
+                    label={t('settings.baseUrl')}
                 >
                     <Input placeholder="https://api.openai.com/v1" />
                 </Form.Item>
 
                 <Form.Item
                     name="model"
-                    label="Model"
+                    label={t('settings.model')}
                     rules={[{ required: true }]}
                 >
                     <Input placeholder="gpt-4o" />
@@ -92,19 +94,20 @@ export const SettingsForm: React.FC = () => {
 
                 <Form.Item
                     name="concurrency"
-                    label="Concurrency Limit"
+                    label={t('settings.concurrency')}
                     rules={[{ required: true }]}
-                    tooltip="同时处理的页面数量。建议值：2-10（取决于 API 限流），最高可设 50"
+                    tooltip={t('settings.concurrencyTooltip')}
                 >
                     <InputNumber min={1} max={50} className="w-full" />
                 </Form.Item>
 
                 <Form.Item>
                     <Button type="primary" htmlType="submit" loading={loading} block>
-                        Save Configuration
+                        {t('settings.save')}
                     </Button>
                 </Form.Item>
             </Form>
         </Card>
     );
 };
+

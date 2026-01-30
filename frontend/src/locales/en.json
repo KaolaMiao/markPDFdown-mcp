@@ -44,5 +44,41 @@
             "fail": "Failed to delete task"
         },
         "downloadFail": "Download failed, please try again later"
+    },
+    "settings": {
+        "title": "LLM Configuration",
+        "provider": "Provider",
+        "apiKey": "API Key",
+        "apiKeyRequired": "API Key is required",
+        "baseUrl": "Base URL (Optional)",
+        "model": "Model",
+        "concurrency": "Concurrency Limit",
+        "concurrencyTooltip": "Number of pages processed simultaneously. Recommended: 2-10 (depends on API limits), max 50",
+        "save": "Save Configuration",
+        "loadFail": "Failed to load settings",
+        "saveSuccess": "Settings saved",
+        "saveFail": "Failed to save settings"
+    },
+    "preview": {
+        "loadingTask": "Loading task info...",
+        "loadingContent": "Loading content...",
+        "back": "Back to List",
+        "download": "Download",
+        "regenerate": "Regenerate Page",
+        "regenerateTooltip": "Regenerate current page (keep format, merge all)",
+        "refresh": "Refresh",
+        "refreshTooltip": "Refresh current page content",
+        "tasks": "Tasks",
+        "contentNotAvailable": "Content not available. The page might still be processing.",
+        "page": "page",
+        "pages": "pages",
+        "pagination": "{{start}}-{{end}} of {{total}} pages",
+        "downloadSuccess": "Download successful",
+        "downloadFail": "Download failed",
+        "regenerating": "Page {{page}} regenerating...",
+        "regenerateSuccess": "Page {{page}} regeneration completed",
+        "regenerateFail": "Failed to regenerate page",
+        "fetchTaskFail": "Failed to fetch task",
+        "fetchContentFail": "Failed to fetch page content"
     }
 }

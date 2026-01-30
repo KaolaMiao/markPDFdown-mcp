@@ -23,6 +23,7 @@ import {
 import { PDFViewer } from '../components/PDFViewer';
 import { MarkdownPreview } from '../components/MarkdownPreview';
 import { ApiClient } from '../services/api';
+import { useTranslation } from 'react-i18next';
 
 // 定义所有类型内联，避免 TypeScript 编译时的导入问题
 interface Task {
@@ -56,6 +57,7 @@ export const Preview: React.FC = () => {
   const { taskId } = useParams<{ taskId: string }>();
   const navigate = useNavigate();
   const { message } = App.useApp();
+  const { t } = useTranslation();
 
   // 状态管理
   const [task, setTask] = useState<Task | null>(null);
@@ -82,11 +84,11 @@ export const Preview: React.FC = () => {
       const result = await ApiClient.getTask(taskId);
       setTask(result);
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to fetch task';
+      const errorMessage = error instanceof Error ? error.message : t('preview.fetchTaskFail');
       message.error(errorMessage);
       navigate('/');
     }
-  }, [taskId, navigate, message]);
+  }, [taskId, navigate, message, t]);
 
   // 加载页面内容
   const fetchPageContent = useCallback(
@@ -138,7 +140,7 @@ export const Preview: React.FC = () => {
           console.log(`[Preview] Max retries reached or content not available`);
         }
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : 'Failed to fetch page content';
+        const errorMessage = error instanceof Error ? error.message : t('preview.fetchContentFail');
         console.error('[Preview] Fetch page content error:', errorMessage);
 
         // 如果是 404 错误且任务状态是 processing/pending/completed，自动重试（带次数限制）
@@ -166,7 +168,7 @@ export const Preview: React.FC = () => {
         setContentLoading(false);
       }
     },
-    [taskId, fetchTask, message, currentPage, retryCount]
+    [taskId, fetchTask, message, currentPage, retryCount, t]
   );
 
   // 加载所有任务列表
@@ -210,9 +212,9 @@ export const Preview: React.FC = () => {
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
-      message.success('Download successful');
+      message.success(t('preview.downloadSuccess'));
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Download failed';
+      const errorMessage = error instanceof Error ? error.message : t('preview.downloadFail');
       message.error(errorMessage);
     }
   };
@@ -228,7 +230,7 @@ export const Preview: React.FC = () => {
     if (!taskId) return;
 
     setRegenerating(true);
-    const hideLoading = message.loading(`Page ${currentPage} regenerating...`, 0);
+    const hideLoading = message.loading(t('preview.regenerating', { page: currentPage }), 0);
 
     try {
       await ApiClient.regeneratePage(taskId, currentPage);
@@ -242,10 +244,10 @@ export const Preview: React.FC = () => {
       setTimeout(() => {
         fetchPageContent(currentPage);
         hideLoading();
-        message.success(`Page ${currentPage} regeneration completed`);
+        message.success(t('preview.regenerateSuccess', { page: currentPage }));
       }, 5000);
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to regenerate page';
+      const errorMessage = error instanceof Error ? error.message : t('preview.regenerateFail');
       hideLoading();
       message.error(errorMessage);
     } finally {
@@ -287,7 +289,7 @@ export const Preview: React.FC = () => {
         }}
       >
         <Spin size="large" />
-        <Text type="secondary">Loading task info...</Text>
+        <Text type="secondary">{t('preview.loadingTask')}</Text>
       </div>
     );
   }
@@ -320,16 +322,16 @@ export const Preview: React.FC = () => {
             onClick={() => navigate('/')}
             type="default"
           >
-            Back to List
+            {t('preview.back')}
           </Button>
           <Text strong style={{ fontSize: '16px' }}>
             {task.file_name || `Task ${taskId}`}
           </Text>
           <Tag color={task.status === 'completed' ? 'success' : task.status === 'processing' ? 'processing' : 'default'}>
-            {task.status}
+            {task.status ? t(`task.status.${task.status}`) : task.status}
           </Tag>
           <Text type="secondary">
-            ({totalPages} {totalPages === 1 ? 'page' : 'pages'})
+            ({totalPages} {t('preview.pages')})
           </Text>
         </Space>
 
@@ -340,25 +342,25 @@ export const Preview: React.FC = () => {
               icon={<DownloadOutlined />}
               onClick={handleDownload}
             >
-              Download
+              {t('preview.download')}
             </Button>
           )}
-          <Tooltip title="重新识别当前页面（保持原有格式，重新合并所有页面）">
+          <Tooltip title={t('preview.regenerateTooltip')}>
             <Button
               icon={<SyncOutlined spin={regenerating} />}
               onClick={handleRegeneratePage}
               loading={regenerating}
               disabled={!pageContent?.content}
             >
-              Regenerate Page
+              {t('preview.regenerate')}
             </Button>
           </Tooltip>
-          <Tooltip title="刷新当前页面内容">
+          <Tooltip title={t('preview.refreshTooltip')}>
             <Button
               icon={<ReloadOutlined spin={contentLoading} />}
               onClick={handleRefresh}
             >
-              Refresh
+              {t('preview.refresh')}
             </Button>
           </Tooltip>
         </Space>
@@ -392,7 +394,7 @@ export const Preview: React.FC = () => {
               fontWeight: 'bold',
             }}
           >
-            Tasks ({allTasks.length})
+            {t('preview.tasks')} ({allTasks.length})
           </div>
           <div
             style={{
@@ -456,11 +458,11 @@ export const Preview: React.FC = () => {
                           }
                           style={{ margin: 0, fontSize: '11px' }}
                         >
-                          {item.status}
+                          {item.status ? t(`task.status.${item.status}`) : item.status}
                         </Tag>
                         {item.total_pages && (
                           <span style={{ fontSize: '11px', color: '#999' }}>
-                            {item.total_pages}p
+                            {item.total_pages}{t('preview.page')}
                           </span>
                         )}
                       </Space>
@@ -544,7 +546,7 @@ export const Preview: React.FC = () => {
                     }}
                   >
                     <Spin size="large" />
-                    <Text type="secondary">Loading content...</Text>
+                    <Text type="secondary">{t('preview.loadingContent')}</Text>
                   </div>
                 ) : pageContent?.content ? (
                   <MarkdownPreview content={pageContent.content} />
@@ -561,7 +563,7 @@ export const Preview: React.FC = () => {
                     <Alert
                       message={
                         pageContent?.message ||
-                        'Content not available. The page might still be processing.'
+                        t('preview.contentNotAvailable')
                       }
                       type="info"
                       showIcon
@@ -591,7 +593,7 @@ export const Preview: React.FC = () => {
               showSizeChanger={false}
               disabled={totalPages === 0}
               showTitle
-              showTotal={(total, range) => `${range[0]}-${range[1]} of ${total} pages`}
+              showTotal={(total, range) => t('preview.pagination', { start: range[0], end: range[1], total })}
             />
           </div>
         </div>
