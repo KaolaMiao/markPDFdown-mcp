@@ -1,6 +1,7 @@
 import os
 import shutil
 import uuid
+import logging
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, BackgroundTasks
@@ -11,9 +12,14 @@ from src.worker.tasks import convert_pdf_task, run_async_process
 from sqlalchemy import func, select
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 UPLOAD_DIR = "files/tasks"  # 改为 tasks 目录，每个任务一个子文件夹
 os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+# 批量上传限制
+MAX_BATCH_SIZE = 10  # 单次批量上传最大文件数
+MAX_FILE_SIZE = 50 * 1024 * 1024  # 单个文件最大 50MB
 
 async def perform_cleanup(max_tasks: int):
     """自动清理多余的旧任务"""
@@ -157,40 +163,58 @@ async def upload_pdf_batch(
     """
     if not files:
         raise HTTPException(status_code=400, detail="No files provided")
-        
+
+    # 检查文件数量限制
+    if len(files) > MAX_BATCH_SIZE:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Maximum {MAX_BATCH_SIZE} files allowed per batch. Got {len(files)} files."
+        )
+
     tasks_to_create = []
     file_paths = {} # task_id -> file_path
-    
+
     # Process all files first
     for file in files:
         if not file.filename.lower().endswith(".pdf"):
             continue # Skip non-pdf files or raise error? Skipping for now to be robust
-            
+
+        # 读取文件内容检查大小
+        file_content = await file.read()
+        await file.seek(0)  # 重置文件指针
+
+        if len(file_content) > MAX_FILE_SIZE:
+            logger.warning(f"File {file.filename} exceeds size limit ({len(file_content)} > {MAX_FILE_SIZE})")
+            raise HTTPException(
+                status_code=400,
+                detail=f"File '{file.filename}' exceeds maximum size of {MAX_FILE_SIZE // (1024*1024)}MB"
+            )
+
         task_id = str(uuid.uuid4())
         original_filename, file_path_abs = await _process_upload_file(file, task_id)
-        
+
         new_task = _create_task_obj(task_id, original_filename)
         tasks_to_create.append(new_task)
         file_paths[task_id] = file_path_abs
-        
+
     if not tasks_to_create:
         raise HTTPException(status_code=400, detail="No valid PDF files found")
-        
+
     # Batch DB insert
     db.add_all(tasks_to_create)
     await db.commit()
-    
+
     # Refresh to populate fields if needed (though we created them)
     # For list response, we might don't need refresh each, just use the objects
-    
+
     # Trigger all tasks
     params = _get_processing_params()
     for task in tasks_to_create:
         _trigger_background_task(background_tasks, task.id, file_paths[task.id], params)
-        
+
     # Cleanup task (just once)
     background_tasks.add_task(perform_cleanup, params["max_tasks"])
-    
+
     return tasks_to_create
 
 
@@ -245,16 +269,23 @@ async def delete_task(task_id: str, db: AsyncSession = Depends(get_db)):
     task = await db.get(Task, task_id)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
-        
+
+    # CRITICAL: 防止删除正在处理的任务，避免文件系统冲突
+    if task.status == TaskStatus.PROCESSING:
+        raise HTTPException(
+            status_code=409,  # Conflict
+            detail="Cannot delete task while it is processing. Please wait for completion."
+        )
+
     # 2. 删除文件系统中的任务目录
     task_dir = os.path.join(UPLOAD_DIR, task_id)
     if os.path.exists(task_dir):
         try:
             shutil.rmtree(task_dir)
         except Exception as e:
-            print(f"Failed to delete directory {task_dir}: {e}")
+            logger.error(f"Failed to delete directory {task_dir}: {e}")
             # 继续删除数据库记录，不阻拦
-            
+
     # 3. 删除数据库记录
     try:
         await db.delete(task)
@@ -262,7 +293,7 @@ async def delete_task(task_id: str, db: AsyncSession = Depends(get_db)):
     except Exception as e:
         await db.rollback()
         raise HTTPException(status_code=500, detail=f"Failed to delete task from DB: {e}")
-        
+
     return
 
 
