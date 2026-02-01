@@ -4,12 +4,19 @@ import asyncio
 from concurrent.futures import ThreadPoolExecutor
 
 from src.worker.smart_worker import SmartWorker
+from markpdfdown.core.llm_client import CompletionResult
 
 @pytest.fixture
 def mock_llm_client():
     with patch("src.worker.smart_worker.LLMClient") as mock:
         client_instance = mock.return_value
-        client_instance.completion.return_value = "Mocked Markdown Content"
+        # Return CompletionResult object instead of string
+        client_instance.completion.return_value = CompletionResult(
+            content="Mocked Markdown Content",
+            input_tokens=100,
+            output_tokens=50,
+            total_tokens=150
+        )
         yield client_instance
 
 @pytest.fixture
@@ -34,16 +41,16 @@ async def test_smart_worker_flow(mock_create_worker, mock_llm_client):
     # Real thread pool is fine if mocks are thread safe or simple.
     
     worker = SmartWorker(model_name="gpt-4o", concurrency=3)
-    
+
     # We call process_file
     result = await worker.process_file("/tmp/test.pdf")
-    
+
     # Verify split was called
     mock_create_worker.assert_called_once_with("/tmp/test.pdf")
-    
+
     # Verify LLM called 3 times
     assert mock_llm_client.completion.call_count == 3
-    
+
     # Verify arguments to LLM (check one of them)
     # We expect verify call args to contain image paths
     # The 'image_paths' arg should be a list containing one image
@@ -55,8 +62,12 @@ async def test_smart_worker_flow(mock_create_worker, mock_llm_client):
         max_tokens=ANY,
         retry_times=ANY
     )
-    
-    # Verify Result Combination
-    assert "Mocked Markdown Content" in result
+
+    # Verify Result Combination - process_file returns (markdown, total_pages, input_tokens, output_tokens)
+    markdown, total_pages, input_tokens, output_tokens = result
+    assert "Mocked Markdown Content" in markdown
     # "Mocked Markdown Content" repeated 3 times with \n\n
-    assert result.count("Mocked Markdown Content") == 3
+    assert markdown.count("Mocked Markdown Content") == 3
+    assert total_pages == 3
+    assert input_tokens == 300  # 100 per page * 3 pages
+    assert output_tokens == 150  # 50 per page * 3 pages

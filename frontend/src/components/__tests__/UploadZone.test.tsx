@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { App } from 'antd';
 import { UploadZone } from '../UploadZone';
 import { ApiClient } from '../../services/api';
 
@@ -8,6 +9,24 @@ vi.mock('../../services/api', () => ({
         uploadFile: vi.fn(),
     },
 }));
+
+// Mock App.useApp
+vi.mock('antd', async () => {
+    const actual = await vi.importActual('antd');
+    return {
+        ...actual,
+        App: {
+            useApp: () => ({
+                message: {
+                    success: vi.fn(),
+                    error: vi.fn(),
+                    warning: vi.fn(),
+                    info: vi.fn(),
+                },
+            }),
+        },
+    };
+});
 
 describe('UploadZone', () => {
     const onUploadSuccess = vi.fn();

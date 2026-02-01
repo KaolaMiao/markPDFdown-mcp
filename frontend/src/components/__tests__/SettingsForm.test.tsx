@@ -11,6 +11,24 @@ vi.mock('../../services/api', () => ({
     },
 }));
 
+// Mock App.useApp
+vi.mock('antd', async () => {
+    const actual = await vi.importActual('antd');
+    return {
+        ...actual,
+        App: {
+            useApp: () => ({
+                message: {
+                    success: vi.fn(),
+                    error: vi.fn(),
+                    warning: vi.fn(),
+                    info: vi.fn(),
+                },
+            }),
+        },
+    };
+});
+
 describe('SettingsForm', () => {
     beforeEach(() => {
         vi.clearAllMocks();
