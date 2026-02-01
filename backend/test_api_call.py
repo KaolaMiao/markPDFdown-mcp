@@ -11,8 +11,10 @@ if str(core_src_dir) not in sys.path:
 
 from markpdfdown.core.llm_client import LLMClient
 
-# 设置 API key
-api_key = "AIzaSyAezvEo7_PaBggLfseOTIflYLBUEWLWsEc"
+# 设置 API key - 从环境变量读取
+api_key = os.environ.get("GEMINI_API_KEY")
+if not api_key:
+    raise ValueError("请设置 GEMINI_API_KEY 环境变量")
 os.environ["GEMINI_API_KEY"] = api_key
 
 # 测试不同的模型名称格式
